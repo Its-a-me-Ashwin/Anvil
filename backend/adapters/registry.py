@@ -31,6 +31,13 @@ ADAPTERS: list[AdapterEntry] = [
         scope=["read_text_file", "write_file", "list_directory", "get_file_info"],
         status="testing",
     ),
+    AdapterEntry(
+        name="search",
+        description="Web search and agent-optimized page context via Brave Search.",
+        backing="mcp",
+        scope=["brave_web_search", "brave_llm_context"],
+        status="testing",
+    ),
 ]
 
 
