@@ -13,7 +13,10 @@ setup:
 test-filesystem:
 	$(PY) -m adapters.filesystem.test_adapter
 
-test-all: test-filesystem
+test-search:
+	$(PY) -m adapters.search.test_adapter
+
+test-all: test-filesystem test-search
 
 clean:
 	rm -rf $(VENV)
