@@ -16,7 +16,10 @@ test-filesystem:
 test-search:
 	$(PY) -m adapters.search.test_adapter
 
-test-all: test-filesystem test-search
+test-cad:
+	$(PY) -m adapters.cad.test_adapter
+
+test-all: test-filesystem test-cad test-search
 
 clean:
 	rm -rf $(VENV)

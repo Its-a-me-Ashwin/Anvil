@@ -38,6 +38,21 @@ ADAPTERS: list[AdapterEntry] = [
         scope=["brave_web_search", "brave_llm_context"],
         status="testing",
     ),
+    AdapterEntry(
+        name="cad",
+        description=(
+            "Parametric multi-part CAD assemblies via build123d: create primitive "
+            "shapes, position them, combine with boolean ops, fillet, inspect, "
+            "and export (gltf/step/stl)."
+        ),
+        backing="custom",
+        scope=[
+            "add_box", "add_cylinder", "add_tube", "add_sphere", "add_cone",
+            "position_part", "remove_part", "boolean_op", "fillet_part",
+            "list_parts", "get_part_info", "export_assembly",
+        ],
+        status="testing",
+    ),
 ]
 
 

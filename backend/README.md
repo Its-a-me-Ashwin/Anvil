@@ -12,10 +12,15 @@ TODO block, not yet implemented.
 |---|---|---|---|---|
 | **filesystem** | [`@modelcontextprotocol/server-filesystem`](https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem) (MCP) | Read and write files in the active project directory — the shared-filesystem model from `arch-spec.md`, where the agent edits the same files code-server displays, instead of driving a UI. Sandboxed to `backend/sandbox_project/`; the server itself rejects any path outside that root (verified — see `test_adapter.py`). | `read_text_file`, `write_file`, `list_directory`, `get_file_info` — deliberately excludes `move_file`, `edit_file`, `create_directory`, `search_files`, and 5 others the server also exposes | testing |
 | **search** | [`@brave/brave-search-mcp-server`](https://www.npmjs.com/package/@brave/brave-search-mcp-server) (MCP) | General web search for the human-facing search UI, plus Brave's agent-optimized "LLM context" endpoint for the agent's own research — matches the Brave-for-both-surfaces approach from `arch-spec.md`. Requires `BRAVE_API_KEY`; fails fast with setup instructions if unset rather than mocking. | `brave_web_search`, `brave_llm_context` — deliberately excludes `brave_local_search`, `brave_video_search`, `brave_image_search`, `brave_news_search`, `brave_summarizer`, `brave_place_search` | testing |
+| **cad** | [`build123d`](https://build123d.readthedocs.io/) (custom — Python library, not MCP) | Builds and edits a persistent, named multi-part assembly: create primitive shapes, position/move them, combine with boolean ops, fillet edges, inspect volume/bounding box, export the whole assembly. This is the "agent mutates the CAD design" capability the UI mockup demos. Runs fully in-process: no daemon, no API key, no external server. Chosen over FreeCAD-MCP (needs Docker running) and Zoo's Engine API (paid, cloud) to minimize demo-time failure points. Assembly state is a small JSON file per project (`sandbox_project/cad_output/assemblies/<project>.json`) — deterministically rebuilt into real geometry on every call, so it's git-diffable and survives restarts, not a live in-memory session. | `add_box`, `add_cylinder`, `add_tube`, `add_sphere`, `add_cone`, `position_part`, `remove_part`, `boolean_op` (union/cut/intersect), `fillet_part`, `list_parts`, `get_part_info`, `export_assembly` (gltf/step/stl) | testing |
 
-Planned next (see `arch-spec.md` for the full tool map): CAD (FreeCAD MCP or
-build123d), GitHub, 3D-printer status (OctoPrint/Klipper/Bambu), parts
-sourcing (DigiKey).
+Gears are deliberately **not** a primitive here — build123d has no native
+gear generator, and involute tooth geometry is exactly the kind of
+easy-to-get-subtly-wrong math that deserves one hand-verified function later
+rather than being composed turn-by-turn by the agent from these primitives.
+
+Planned next (see `arch-spec.md` for the full tool map): GitHub, 3D-printer
+status (OctoPrint/Klipper/Bambu), parts sourcing (DigiKey).
 
 ## Layout
 
@@ -31,7 +36,14 @@ backend/
     search/
       adapter.py           # Brave Search MCP server connection + scope
       test_adapter.py      # standalone proof it works — no agent required
+    cad/
+      adapter.py            # the 12 tool functions — thin wrappers around assembly.py
+      assembly.py           # persistent named Assembly: add/remove/position/boolean/fillet/export
+      geometry.py           # pure function: part-definition dict -> build123d Shape
+      test_adapter.py       # standalone proof it works — no agent required
   sandbox_project/       # scoped root the filesystem adapter is allowed to touch
+    cad_output/
+      assemblies/            # one <project>.json (+ exported .gltf/.step/.stl) per assembly
   requirements.txt
 ```
 
@@ -56,14 +68,20 @@ Requires Node/npx on PATH — the filesystem adapter spawns the official
 ```bash
 make test-filesystem   # one adapter
 make test-search       # one adapter
+make test-cad          # one adapter
 make test-all          # every adapter
 ```
 
-Each `test-<name>` target connects to that adapter exactly the way ADK's
-`MCPToolset` will, confirms every tool in its scope is present, and exercises
-real calls end to end (for filesystem: write → list → read → get_file_info,
-plus a boundary check that paths outside the sandbox are rejected; for
-search: a real `brave_web_search` query).
+Each `test-<name>` target proves that adapter works with real calls, no
+agent involved — for the MCP-backed ones (filesystem, search) that means
+connecting exactly the way ADK's `MCPToolset` will and confirming every tool
+in scope is present; for the custom cad adapter it's a direct function call
+since there's no server in the loop. Filesystem exercises write → list →
+read → get_file_info plus a boundary check that paths outside the sandbox
+are rejected; search issues a real `brave_web_search` query; cad builds a
+small multi-part assembly (a housing, a shaft, a bracket with a boolean-cut
+bolt hole, a fillet) exercising every tool, exports it in all three formats,
+and checks 7 different boundary/error cases are correctly rejected.
 
 The search adapter requires `BRAVE_API_KEY` in `backend/.env` (copy from
 `.env.example`) — without it, `test-search` fails fast with instructions
