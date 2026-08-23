@@ -20,6 +20,7 @@ bambu.log
 __pycache__
 *.pyc
 backend/.env
+backend/sandbox_project/cad_output/assemblies/
 
 # Editor directories and files
 .vscode/*
