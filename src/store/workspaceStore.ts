@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type TabType = 'web' | 'code' | 'codeserver' | 'search' | 'pdf' | 'image' | 'video' | 'youtube' | 'unknown';
+export type TabType = 'web' | 'code' | 'codeserver' | 'search' | 'pdf' | 'image' | 'video' | 'youtube' | 'slicer' | 'unknown';
 
 export interface WorkspaceTab {
   id: string;

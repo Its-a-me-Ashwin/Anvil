@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Plus, X, Globe, FileCode, FileText, Image as ImageIcon, Video, Play, MousePointer2, Upload, Search, Code } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Plus, X, Globe, FileCode, FileText, Image as ImageIcon, Video, Play, MousePointer2, Upload, Search, Code, Box } from 'lucide-react';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { detectTypeFromName } from '../lib/fileTypes';
 import WebViewer from './WebViewer';
@@ -10,6 +10,7 @@ import PdfViewer from './PdfViewer';
 import ImageViewer from './ImageViewer';
 import VideoViewer from './VideoViewer';
 import YouTubeViewer from './YouTubeViewer';
+import SlicerWorkspace from './SlicerWorkspace';
 import UnknownViewer from './UnknownViewer';
 
 const icons: Record<string, React.ElementType> = {
@@ -21,6 +22,7 @@ const icons: Record<string, React.ElementType> = {
   image: ImageIcon,
   video: Video,
   youtube: Play,
+  slicer: Box,
   unknown: MousePointer2,
 };
 
@@ -52,7 +54,9 @@ export default function CenterWorkspace() {
 
   const openFile = async (file: File) => {
     const type = detectTypeFromName(file.name);
-    if (type === 'code' || type === 'unknown') {
+    if (type === 'slicer') {
+      addTab({ title: file.name, type: 'slicer', file });
+    } else if (type === 'code' || type === 'unknown') {
       const text = await file.text();
       addTab({ title: file.name, type: 'code', content: text, fileName: file.name, file });
     } else if (type === 'pdf') {
@@ -64,9 +68,22 @@ export default function CenterWorkspace() {
     }
   };
 
-  const newWebTab = () => addTab({ title: 'New Tab', type: 'web', url: 'https://example.com' });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const newWebTab = () => addTab({ title: 'Browser', type: 'web', url: 'https://example.com' });
   const newSearchTab = () => addTab({ title: 'Brave Search', type: 'search' });
-  const newCodeServerTab = () => addTab({ title: 'code-server', type: 'codeserver', url: 'http://localhost:8080' });
+  const newCodeServerTab = () => addTab({ title: 'VS Code', type: 'codeserver', url: 'http://localhost:8080' });
+  const newYouTubeTab = () => addTab({ title: 'YouTube', type: 'youtube', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ' });
+  const newSlicerTab = () => addTab({ title: 'Bambu Slicer', type: 'slicer' });
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -107,15 +124,50 @@ export default function CenterWorkspace() {
             </div>
           );
         })}
-        <button onClick={newWebTab} className="h-full px-2 text-anvil-muted hover:text-white">
-          <Plus className="w-4 h-4" />
-        </button>
-        <button onClick={newSearchTab} className="h-full px-2 text-anvil-muted hover:text-white" title="Brave Search">
-          <Search className="w-4 h-4" />
-        </button>
-        <button onClick={newCodeServerTab} className="h-full px-2 text-anvil-muted hover:text-white" title="code-server">
-          <Code className="w-4 h-4" />
-        </button>
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="h-full px-2 text-anvil-muted hover:text-white"
+            title="New tab"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          {menuOpen && (
+            <div className="absolute top-full left-0 mt-1 w-48 rounded-lg bg-anvil-panel border border-anvil-border shadow-xl z-50 overflow-hidden">
+              <div className="px-3 py-2 text-[10px] font-semibold text-anvil-muted uppercase tracking-wider">Open Workspace</div>
+              <button
+                onClick={() => { newWebTab(); setMenuOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs text-anvil-text hover:bg-anvil-panelHover flex items-center gap-2"
+              >
+                <Globe className="w-3.5 h-3.5 text-anvil-accent" /> Browser
+              </button>
+              <button
+                onClick={() => { newCodeServerTab(); setMenuOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs text-anvil-text hover:bg-anvil-panelHover flex items-center gap-2"
+              >
+                <Code className="w-3.5 h-3.5 text-blue-400" /> VS Code
+              </button>
+              <button
+                onClick={() => { newSearchTab(); setMenuOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs text-anvil-text hover:bg-anvil-panelHover flex items-center gap-2"
+              >
+                <Search className="w-3.5 h-3.5 text-orange-400" /> Brave Search
+              </button>
+              <button
+                onClick={() => { newYouTubeTab(); setMenuOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs text-anvil-text hover:bg-anvil-panelHover flex items-center gap-2"
+              >
+                <Play className="w-3.5 h-3.5 text-red-500" /> YouTube
+              </button>
+              <button
+                onClick={() => { newSlicerTab(); setMenuOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs text-anvil-text hover:bg-anvil-panelHover flex items-center gap-2"
+              >
+                <Box className="w-3.5 h-3.5 text-purple-400" /> Bambu Slicer
+              </button>
+            </div>
+          )}
+        </div>
         <button onClick={() => fileInputRef.current?.click()} className="h-full px-2 text-anvil-muted hover:text-white" title="Open file">
           <Upload className="w-4 h-4" />
         </button>
@@ -141,6 +193,7 @@ export default function CenterWorkspace() {
             {activeTab.type === 'image' && <ImageViewer file={activeTab.file} url={activeTab.url} />}
             {activeTab.type === 'video' && <VideoViewer file={activeTab.file} url={activeTab.url} />}
             {activeTab.type === 'youtube' && <YouTubeViewer url={activeTab.url} />}
+            {activeTab.type === 'slicer' && <SlicerWorkspace file={activeTab.file} />}
             {activeTab.type === 'unknown' && <UnknownViewer title={activeTab.title} />}
           </div>
         ) : (

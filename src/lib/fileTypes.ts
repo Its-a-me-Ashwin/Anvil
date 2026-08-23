@@ -12,6 +12,7 @@ const CODE_EXTENSIONS = new Set([
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp']);
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'ogg', 'mov']);
 const PDF_EXTENSIONS = new Set(['pdf']);
+const SLICER_EXTENSIONS = new Set(['stl', '3mf']);
 
 export function getFileExtension(fileName: string): string {
   const lastDot = fileName.lastIndexOf('.');
@@ -20,6 +21,7 @@ export function getFileExtension(fileName: string): string {
 
 export function detectTypeFromName(fileName: string): TabType {
   const ext = getFileExtension(fileName);
+  if (SLICER_EXTENSIONS.has(ext)) return 'slicer';
   if (PDF_EXTENSIONS.has(ext)) return 'pdf';
   if (IMAGE_EXTENSIONS.has(ext)) return 'image';
   if (VIDEO_EXTENSIONS.has(ext)) return 'video';
