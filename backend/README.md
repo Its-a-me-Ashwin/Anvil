@@ -14,6 +14,9 @@ backend/
     filesystem/
       adapter.py          # the adapter itself — connection params, scope
       test_adapter.py     # standalone proof it works — no agent required
+    search/
+      adapter.py           # Brave Search MCP server connection + scope
+      test_adapter.py      # standalone proof it works — no agent required
   sandbox_project/       # scoped root the filesystem adapter is allowed to touch
   requirements.txt
 ```
@@ -38,13 +41,19 @@ Requires Node/npx on PATH — the filesystem adapter spawns the official
 
 ```bash
 make test-filesystem   # one adapter
+make test-search       # one adapter
 make test-all          # every adapter
 ```
 
 Each `test-<name>` target connects to that adapter exactly the way ADK's
 `MCPToolset` will, confirms every tool in its scope is present, and exercises
 real calls end to end (for filesystem: write → list → read → get_file_info,
-plus a boundary check that paths outside the sandbox are rejected).
+plus a boundary check that paths outside the sandbox are rejected; for
+search: a real `brave_web_search` query).
+
+The search adapter requires `BRAVE_API_KEY` in `backend/.env` (copy from
+`.env.example`) — without it, `test-search` fails fast with instructions
+instead of silently mocking results.
 
 ## Adding a new adapter
 
