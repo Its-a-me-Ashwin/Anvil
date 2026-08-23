@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bottom Data Sources</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            anvil: {
+              bg: '#0b0d12',
+              panel: '#11141c',
+              panelHover: '#181b27',
+              border: '#1f2433',
+              text: '#e6e9f0',
+              muted: '#8b92a8',
+              accent: '#3b82f6',
+              success: '#22c55e',
+              danger: '#ef4444'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { margin: 0; background: #11141c; color: #e6e9f0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-size: 12px; }
+    .thumb { aspect-ratio: 16/9; }
+    ::-webkit-scrollbar { height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #1f2433; border-radius: 3px; }
+  </style>
+</head>
+<body class="h-full w-full flex flex-col">
+  <div class="px-3 h-8 flex items-center justify-between border-b border-[#1f2433] shrink-0">
+    <span class="text-xs font-semibold text-anvil-muted uppercase tracking-wider">Open Data Sources</span>
+    <button class="text-anvil-muted hover:text-white" title="Add source"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg></button>
+  </div>
+
+  <div class="flex-1 overflow-x-auto p-3 flex items-stretch gap-3">
+    <!-- Camera Feed -->
+    <div class="w-64 shrink-0 flex flex-col rounded-lg bg-[#0b0d12] border border-[#1f2433] overflow-hidden">
+      <div class="px-2.5 py-1.5 border-b border-[#1f2433] flex items-center justify-between">
+        <span class="text-xs font-medium text-anvil-text flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-anvil-danger animate-pulse"></span>
+          Bambu Printer
+        </span>
+        <span class="text-[10px] text-anvil-muted">Live</span>
+      </div>
+      <div class="thumb bg-black flex-1 flex items-center justify-center relative">
+        <svg class="w-8 h-8 text-anvil-muted" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <div class="absolute bottom-2 left-2 right-2">
+          <div class="h-1 bg-[#1f2433] rounded-full overflow-hidden"><div class="h-full bg-anvil-accent w-[39%]"></div></div>
+          <div class="flex justify-between mt-1 text-[10px] text-anvil-muted"><span>21m left</span><span>39%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Video Research -->
+    <div class="w-64 shrink-0 flex flex-col rounded-lg bg-[#0b0d12] border border-[#1f2433] overflow-hidden">
+      <div class="px-2.5 py-1.5 border-b border-[#1f2433] flex items-center justify-between">
+        <span class="text-xs font-medium text-anvil-text">Reducer Geometry</span>
+        <svg class="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/></svg>
+      </div>
+      <div class="thumb bg-[#181b27] flex-1 flex items-center justify-center">
+        <svg class="w-8 h-8 text-anvil-muted" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div class="px-2.5 py-1.5 text-[10px] text-anvil-muted truncate">00:45 – 02:10 added to context</div>
+    </div>
+
+    <!-- PDF Doc -->
+    <div class="w-48 shrink-0 flex flex-col rounded-lg bg-[#0b0d12] border border-[#1f2433] overflow-hidden">
+      <div class="px-2.5 py-1.5 border-b border-[#1f2433] flex items-center justify-between">
+        <span class="text-xs font-medium text-anvil-text">AS5600.pdf</span>
+        <svg class="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/></svg>
+      </div>
+      <div class="flex-1 p-3 bg-white text-gray-800 overflow-hidden flex flex-col">
+        <h4 class="text-sm font-bold">AS5600</h4>
+        <p class="text-[10px] text-gray-500 mt-0.5">Magnetic Rotary Encoder</p>
+        <div class="mt-auto text-[10px] text-gray-400">Pages 12–16</div>
+      </div>
+    </div>
+
+    <!-- Workshop Bench Camera -->
+    <div class="w-64 shrink-0 flex flex-col rounded-lg bg-[#0b0d12] border border-[#1f2433] overflow-hidden">
+      <div class="px-2.5 py-1.5 border-b border-[#1f2433] flex items-center justify-between">
+        <span class="text-xs font-medium text-anvil-text flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-anvil-success"></span>
+          Electronics Bench
+        </span>
+        <span class="text-[10px] text-anvil-muted">RTSP</span>
+      </div>
+      <div class="thumb bg-black flex-1 flex items-center justify-center">
+        <svg class="w-8 h-8 text-anvil-muted" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+      </div>
+    </div>
+
+    <!-- Image Context -->
+    <div class="w-40 shrink-0 flex flex-col rounded-lg bg-[#0b0d12] border border-[#1f2433] overflow-hidden">
+      <div class="px-2.5 py-1.5 border-b border-[#1f2433]">
+        <span class="text-xs font-medium text-anvil-text">Mount Sketch</span>
+      </div>
+      <div class="thumb bg-[#181b27] flex-1 flex items-center justify-center">
+        <svg class="w-7 h-7 text-anvil-muted" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

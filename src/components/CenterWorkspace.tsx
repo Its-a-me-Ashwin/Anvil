@@ -1,0 +1,158 @@
+import { useState, useRef } from 'react';
+import { Plus, X, Globe, FileCode, FileText, Image as ImageIcon, Video, Play, MousePointer2, Upload, Search, Code } from 'lucide-react';
+import { useWorkspaceStore } from '../store/workspaceStore';
+import { detectTypeFromName } from '../lib/fileTypes';
+import WebViewer from './WebViewer';
+import CodeEditor from './CodeEditor';
+import CodeServerWorkspace from './CodeServerWorkspace';
+import SearchWorkspace from './SearchWorkspace';
+import PdfViewer from './PdfViewer';
+import ImageViewer from './ImageViewer';
+import VideoViewer from './VideoViewer';
+import YouTubeViewer from './YouTubeViewer';
+import UnknownViewer from './UnknownViewer';
+
+const icons: Record<string, React.ElementType> = {
+  web: Globe,
+  code: FileCode,
+  codeserver: Code,
+  search: Search,
+  pdf: FileText,
+  image: ImageIcon,
+  video: Video,
+  youtube: Play,
+  unknown: MousePointer2,
+};
+
+export default function CenterWorkspace() {
+  const { tabs, activeTabId, addTab, closeTab, setActiveTab, updateTab } = useWorkspaceStore();
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const onDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    for (const file of files) {
+      await openFile(file);
+    }
+  };
+
+  const openFile = async (file: File) => {
+    const type = detectTypeFromName(file.name);
+    if (type === 'code' || type === 'unknown') {
+      const text = await file.text();
+      addTab({ title: file.name, type: 'code', content: text, fileName: file.name, file });
+    } else if (type === 'pdf') {
+      addTab({ title: file.name, type: 'pdf', file });
+    } else if (type === 'image') {
+      addTab({ title: file.name, type: 'image', file });
+    } else if (type === 'video') {
+      addTab({ title: file.name, type: 'video', file });
+    }
+  };
+
+  const newWebTab = () => addTab({ title: 'New Tab', type: 'web', url: 'https://example.com' });
+  const newSearchTab = () => addTab({ title: 'Brave Search', type: 'search' });
+  const newCodeServerTab = () => addTab({ title: 'code-server', type: 'codeserver', url: 'http://localhost:8080' });
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) await openFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  return (
+    <div className="h-full w-full flex flex-col" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+      <input type="file" ref={fileInputRef} onChange={handleFileInput} className="hidden" multiple />
+
+      {/* Tab bar */}
+      <div className="h-10 flex items-center border-b border-anvil-border bg-anvil-panel px-1 overflow-x-auto">
+        {tabs.map((tab) => {
+          const Icon = icons[tab.type] || MousePointer2;
+          const isActive = tab.id === activeTabId;
+          return (
+            <div
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`group h-full px-3 flex items-center gap-2 border-t-2 text-xs cursor-pointer transition whitespace-nowrap ${
+                isActive
+                  ? 'border-anvil-accent bg-anvil-panelHover text-white'
+                  : 'border-transparent text-anvil-muted hover:bg-anvil-panelHover hover:text-anvil-text'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span className="max-w-[120px] truncate">{tab.title}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeTab(tab.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 text-anvil-muted hover:text-white"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          );
+        })}
+        <button onClick={newWebTab} className="h-full px-2 text-anvil-muted hover:text-white">
+          <Plus className="w-4 h-4" />
+        </button>
+        <button onClick={newSearchTab} className="h-full px-2 text-anvil-muted hover:text-white" title="Brave Search">
+          <Search className="w-4 h-4" />
+        </button>
+        <button onClick={newCodeServerTab} className="h-full px-2 text-anvil-muted hover:text-white" title="code-server">
+          <Code className="w-4 h-4" />
+        </button>
+        <button onClick={() => fileInputRef.current?.click()} className="h-full px-2 text-anvil-muted hover:text-white" title="Open file">
+          <Upload className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 relative">
+        {isDragging && (
+          <div className="absolute inset-0 z-50 bg-anvil-accent/10 border-2 border-dashed border-anvil-accent flex flex-col items-center justify-center text-anvil-accent">
+            <Upload className="w-10 h-10 mb-2" />
+            <p className="text-sm font-medium">Drop files here to open</p>
+            <p className="text-xs opacity-80">PDFs, code, images, videos</p>
+          </div>
+        )}
+
+        {activeTab ? (
+          <div key={activeTab.id} className="h-full w-full">
+            {activeTab.type === 'web' && <WebViewer url={activeTab.url || 'https://example.com'} onUrlChange={(url) => updateTab(activeTab.id, { url })} />}
+            {activeTab.type === 'code' && <CodeEditor content={activeTab.content} fileName={activeTab.fileName} onChange={(content) => updateTab(activeTab.id, { content })} />}
+            {activeTab.type === 'codeserver' && <CodeServerWorkspace url={activeTab.url} />}
+            {activeTab.type === 'search' && <SearchWorkspace />}
+            {activeTab.type === 'pdf' && <PdfViewer file={activeTab.file} url={activeTab.url} />}
+            {activeTab.type === 'image' && <ImageViewer file={activeTab.file} url={activeTab.url} />}
+            {activeTab.type === 'video' && <VideoViewer file={activeTab.file} url={activeTab.url} />}
+            {activeTab.type === 'youtube' && <YouTubeViewer url={activeTab.url} />}
+            {activeTab.type === 'unknown' && <UnknownViewer title={activeTab.title} />}
+          </div>
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-anvil-muted">
+            <div className="text-center">
+              <MousePointer2 className="w-10 h-10 mx-auto mb-3" />
+              <p className="text-sm font-medium text-white">Center Workspace</p>
+              <p className="text-xs mt-1 max-w-xs">Open a tab, enter a URL, or drop a file here.</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
