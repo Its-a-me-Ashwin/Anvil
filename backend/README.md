@@ -2,13 +2,27 @@
 
 Python backend that will host the Google ADK agent. For now it just holds
 tool adapters, built and tested independently of ADK/Gemini so each one is
-proven working before it's wired into the agent.
+proven working before it's wired into the agent. `agent.py` is a template
+documenting how they'll be wired in — see `adapters/registry.py` for the
+TODO block, not yet implemented.
+
+## Adapters configured
+
+| Adapter | Backing | Capability this gives the agent | Tools exposed | Status |
+|---|---|---|---|---|
+| **filesystem** | [`@modelcontextprotocol/server-filesystem`](https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem) (MCP) | Read and write files in the active project directory — the shared-filesystem model from `arch-spec.md`, where the agent edits the same files code-server displays, instead of driving a UI. Sandboxed to `backend/sandbox_project/`; the server itself rejects any path outside that root (verified — see `test_adapter.py`). | `read_text_file`, `write_file`, `list_directory`, `get_file_info` — deliberately excludes `move_file`, `edit_file`, `create_directory`, `search_files`, and 5 others the server also exposes | testing |
+| **search** | [`@brave/brave-search-mcp-server`](https://www.npmjs.com/package/@brave/brave-search-mcp-server) (MCP) | General web search for the human-facing search UI, plus Brave's agent-optimized "LLM context" endpoint for the agent's own research — matches the Brave-for-both-surfaces approach from `arch-spec.md`. Requires `BRAVE_API_KEY`; fails fast with setup instructions if unset rather than mocking. | `brave_web_search`, `brave_llm_context` — deliberately excludes `brave_local_search`, `brave_video_search`, `brave_image_search`, `brave_news_search`, `brave_summarizer`, `brave_place_search` | testing |
+
+Planned next (see `arch-spec.md` for the full tool map): CAD (FreeCAD MCP or
+build123d), GitHub, 3D-printer status (OctoPrint/Klipper/Bambu), parts
+sourcing (DigiKey).
 
 ## Layout
 
 ```
 backend/
   Makefile
+  agent.py              # template for wiring adapters into ADK — not yet implemented
   adapters/
     registry.py         # single source of truth: every tool exposed to the agent, and its scope
     filesystem/
