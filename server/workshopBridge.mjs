@@ -187,7 +187,24 @@ async function sendPrint(outputPath, printerName) {
   if (!await fileExists(outputPath)) {
     return { ok: false, error: 'Sliced file not found on bridge.' };
   }
-  const result = await run(BAMBU_CLI, ['print', printerName, outputPath]);
+
+  const config = await readPrintersConfig();
+  const key = printerName?.trim();
+  const printer = config[key];
+  if (!printer) {
+    return { ok: false, error: `Printer '${key}' not found. Register it via Settings → Printer first.` };
+  }
+
+  const result = await run(BAMBU_PYTHON, [
+    path.resolve(__dirname, 'printHelper.py'),
+    outputPath,
+    '--ip', printer.ip_address,
+    '--serial', printer.serial_number,
+    '--access-code', printer.access_code,
+    '--model', printer.model || 'P1S',
+    '--plate', '1',
+  ]);
+
   if (result.code !== 0) {
     return { ok: false, error: 'Print command failed', stdout: result.stdout, stderr: result.stderr };
   }

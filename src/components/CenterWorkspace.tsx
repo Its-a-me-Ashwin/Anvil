@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, X, Globe, FileCode, FileText, Image as ImageIcon, Video, Play, MousePointer2, Upload, Search, Code, Box } from 'lucide-react';
+import { Plus, X, Globe, FileCode, FileText, Image as ImageIcon, Video, Play, MousePointer2, Upload, Search, Code, Box, CircuitBoard } from 'lucide-react';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { detectTypeFromName } from '../lib/fileTypes';
 import WebViewer from './WebViewer';
@@ -11,6 +11,8 @@ import ImageViewer from './ImageViewer';
 import VideoViewer from './VideoViewer';
 import YouTubeViewer from './YouTubeViewer';
 import SlicerWorkspace from './SlicerWorkspace';
+import WiringDiagram from './wiring/WiringDiagram';
+import type { WiringDiagramData } from './wiring/wiringTypes';
 import UnknownViewer from './UnknownViewer';
 
 const icons: Record<string, React.ElementType> = {
@@ -23,6 +25,7 @@ const icons: Record<string, React.ElementType> = {
   video: Video,
   youtube: Play,
   slicer: Box,
+  wiring: CircuitBoard,
   unknown: MousePointer2,
 };
 
@@ -76,6 +79,7 @@ export default function CenterWorkspace() {
   const newCodeServerTab = () => addTab({ title: 'VS Code', type: 'codeserver', url: 'http://localhost:8080' });
   const newYouTubeTab = () => addTab({ title: 'YouTube', type: 'youtube', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ' });
   const newSlicerTab = () => addTab({ title: 'Bambu Slicer', type: 'slicer' });
+  const newWiringTab = () => addTab({ title: 'Wiring Diagram', type: 'wiring' });
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -165,6 +169,12 @@ export default function CenterWorkspace() {
               >
                 <Box className="w-3.5 h-3.5 text-purple-400" /> Bambu Slicer
               </button>
+              <button
+                onClick={() => { newWiringTab(); setMenuOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs text-anvil-text hover:bg-anvil-panelHover flex items-center gap-2"
+              >
+                <CircuitBoard className="w-3.5 h-3.5 text-yellow-400" /> Wiring Diagram
+              </button>
             </div>
           )}
         </div>
@@ -194,6 +204,9 @@ export default function CenterWorkspace() {
             {activeTab.type === 'video' && <VideoViewer file={activeTab.file} url={activeTab.url} />}
             {activeTab.type === 'youtube' && <YouTubeViewer url={activeTab.url} />}
             {activeTab.type === 'slicer' && <SlicerWorkspace file={activeTab.file} />}
+            {activeTab.type === 'wiring' && (
+              <WiringDiagram data={(activeTab.content ? JSON.parse(activeTab.content) : { modules: [], connections: [] }) as WiringDiagramData} onDelete={() => closeTab(activeTab.id)} />
+            )}
             {activeTab.type === 'unknown' && <UnknownViewer title={activeTab.title} />}
           </div>
         ) : (

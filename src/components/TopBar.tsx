@@ -50,11 +50,18 @@ export default function TopBar() {
     }
     setSaving(true);
     setSaveStatus(null);
+    const cleaned: PrinterConfig = {
+      ...form,
+      name: form.name.trim(),
+      host: form.host.trim(),
+      serialNumber: form.serialNumber.trim(),
+      accessCode: form.accessCode.trim(),
+    };
     try {
-      await registerPrinterWithBridge(form);
-      savePrinterConfig(form);
-      setPrinter(form);
-      setSaveStatus({ type: 'success', message: `Registered "${form.name}" with bambu CLI.` });
+      await registerPrinterWithBridge(cleaned);
+      savePrinterConfig(cleaned);
+      setPrinter(cleaned);
+      setSaveStatus({ type: 'success', message: `Registered "${cleaned.name}" with bambu CLI.` });
     } catch (err: any) {
       setSaveStatus({ type: 'error', message: err?.message || 'Failed to register printer. Is the bridge running?' });
     } finally {

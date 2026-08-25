@@ -106,6 +106,7 @@ export async function sliceModel(file: File, params: SlicerParams, model: Printe
 export async function sendToPrinter(outputPath: string, printer: PrinterConfig) {
   return post('/print', {
     outputPath,
-    printerName: printer.name,
+    printerName: printer.name.trim(),
   });
 }
+

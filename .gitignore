@@ -15,13 +15,6 @@ dist-ssr
 .anvil-workshop
 bambu.log
 
-# Python
-.venv
-__pycache__
-*.pyc
-backend/.env
-backend/sandbox_project/cad_output/assemblies/
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
