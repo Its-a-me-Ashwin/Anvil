@@ -53,6 +53,32 @@ ADAPTERS: list[AdapterEntry] = [
         ],
         status="testing",
     ),
+    AdapterEntry(
+        name="circuit",
+        description="Create, read, update, and delete wiring diagrams for the circuit workspace.",
+        backing="custom",
+        scope=[
+            "create_wiring_diagram",
+            "update_wiring_diagram",
+            "get_wiring_diagram",
+            "delete_wiring_diagram",
+            "list_wiring_diagrams",
+        ],
+        status="testing",
+    ),
+    AdapterEntry(
+        name="printer",
+        description="Slice models with Bambu Studio and send them to a local Bambu printer.",
+        backing="custom",
+        scope=[
+            "check_bridge_health",
+            "register_printer",
+            "list_printers",
+            "slice_model",
+            "send_to_printer",
+        ],
+        status="testing",
+    ),
 ]
 
 

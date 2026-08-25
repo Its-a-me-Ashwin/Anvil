@@ -19,7 +19,13 @@ test-search:
 test-cad:
 	$(PY) -m adapters.cad.test_adapter
 
-test-all: test-filesystem test-cad test-search
+test-circuit:
+	$(PY) -m adapters.circuit.test_adapter
+
+test-printer:
+	$(PY) -m adapters.printer.test_adapter
+
+test-all: test-filesystem test-cad test-search test-circuit test-printer
 
 clean:
 	rm -rf $(VENV)
