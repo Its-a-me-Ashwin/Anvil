@@ -1,20 +1,19 @@
 # Anvil backend — adapters
 
-Python backend that will host the Google ADK agent. For now it just holds
-tool adapters, built and tested independently of ADK/Gemini so each one is
-proven working before it's wired into the agent. `agent.py` is a template
-documenting how they'll be wired in — see `adapters/registry.py` for the
-TODO block, not yet implemented.
+Python backend that hosts the Google ADK agent and the tool adapters it uses.
+Adapters are built and tested independently (see `make test-<name>`), then wired
+into the agent in `agent.py` via `adapters/registry.py`.
 
 ## Adapters configured
 
 | Adapter | Backing | Capability this gives the agent | Tools exposed | Status |
 |---|---|---|---|---|
-| **filesystem** | [`@modelcontextprotocol/server-filesystem`](https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem) (MCP) | Read and write files in the active project directory — the shared-filesystem model from `arch-spec.md`, where the agent edits the same files code-server displays, instead of driving a UI. Scoped to the Anvil project root by default; the server itself rejects any path outside that root (verified — see `test_adapter.py`). | `read_text_file`, `write_file`, `list_directory`, `get_file_info` — deliberately excludes `move_file`, `edit_file`, `create_directory`, `search_files`, and 5 others the server also exposes | testing |
+| **filesystem** | [`@modelcontextprotocol/server-filesystem`](https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem) (MCP) | Read, write, search, and edit files in the active project directory — the shared-filesystem model from `arch-spec.md`, where the agent edits the same files code-server displays, instead of driving a UI. Scoped to the Anvil project root by default; the server itself rejects any path outside that root (verified — see `test_adapter.py`). | `read_text_file`, `write_file`, `edit_file` (sed-like exact-line replace), `search_files`, `list_directory`, `get_file_info` | testing |
 | **search** | [`@brave/brave-search-mcp-server`](https://www.npmjs.com/package/@brave/brave-search-mcp-server) (MCP) | General web search for the human-facing search UI, plus Brave's agent-optimized "LLM context" endpoint for the agent's own research — matches the Brave-for-both-surfaces approach from `arch-spec.md`. Requires `BRAVE_API_KEY`; fails fast with setup instructions if unset rather than mocking. | `brave_web_search`, `brave_llm_context` — deliberately excludes `brave_local_search`, `brave_video_search`, `brave_image_search`, `brave_news_search`, `brave_summarizer`, `brave_place_search` | testing |
 | **cad** | [`build123d`](https://build123d.readthedocs.io/) (custom — Python library, not MCP) | Builds and edits a persistent, named multi-part assembly: create primitive shapes, position/move them, combine with boolean ops, fillet edges, inspect volume/bounding box, export the whole assembly. This is the "agent mutates the CAD design" capability the UI mockup demos. Runs fully in-process: no daemon, no API key, no external server. Chosen over FreeCAD-MCP (needs Docker running) and Zoo's Engine API (paid, cloud) to minimize demo-time failure points. Assembly state is a small JSON file per project (`sandbox_project/cad_output/assemblies/<project>.json`) — deterministically rebuilt into real geometry on every call, so it's git-diffable and survives restarts, not a live in-memory session. | `add_box`, `add_cylinder`, `add_tube`, `add_sphere`, `add_cone`, `position_part`, `remove_part`, `boolean_op` (union/cut/intersect), `fillet_part`, `list_parts`, `get_part_info`, `export_assembly` (gltf/step/stl) | testing |
 | **circuit** | custom Python | Create, read, update, and delete wiring diagrams as small JSON files that the frontend `WiringDiagram` workspace loads. The agent only supplies modules, pins, and connections; the frontend handles layout, routing, and rendering. Diagrams live in `backend/circuit_output/<project>.json`. | `create_wiring_diagram`, `update_wiring_diagram`, `get_wiring_diagram`, `delete_wiring_diagram`, `list_wiring_diagrams` | testing |
 | **printer** | custom Python calling the local Anvil Workshop Bridge | Slice STL/3MF models with Bambu Studio CLI and send them to a Bambu printer over the LAN. Reuses the same bridge (`localhost:3001`) the frontend slicer uses, so printer registration and slicing state are shared. | `check_bridge_health`, `register_printer`, `list_printers`, `slice_model`, `send_to_printer` | testing |
+| **state** | [`google-cloud-firestore`](https://cloud.google.com/firestore) (custom — Python library, not MCP) | Persistent project state in Firestore: inventory, constraints, objectives, decisions, and artifacts. Uses `GOOGLE_CLOUD_PROJECT` and honors `FIRESTORE_EMULATOR_HOST` for local testing. | `read_project_summary`, `read_inventory`, `update_inventory`, `add_constraint`, `read_constraints`, `add_objective`, `mark_objective_done`, `read_objectives`, `record_decision`, `approve_decision`, `read_decisions` | testing |
 
 Gears are deliberately **not** a primitive here — build123d has no native
 gear generator, and involute tooth geometry is exactly the kind of
@@ -29,7 +28,7 @@ status (OctoPrint/Klipper/Bambu), parts sourcing (DigiKey).
 ```
 backend/
   Makefile
-  agent.py              # template for wiring adapters into ADK — not yet implemented
+  agent.py              # wires adapters/registry.py into a Google ADK agent
   adapters/
     registry.py         # single source of truth: every tool exposed to the agent, and its scope
     filesystem/
@@ -65,9 +64,42 @@ wired into ADK later, and it's also the architecture reference for the repo.
 
 ## Setup
 
+Requires **Python 3.10 or newer** and Node/npx on PATH.
+
+### Option 1 — `make setup` (recommended)
+
 ```bash
 cd backend
 make setup
+```
+
+This creates a virtual environment in `backend/.venv`, upgrades `pip`, and
+installs everything in `requirements.txt` (including `google-adk` and
+`google-cloud-firestore`).
+
+On Windows, if `python3` is not on PATH, the Makefile tries `python3.12`
+and then `python`. To force a specific interpreter:
+
+```powershell
+# Windows example with Python 3.12 explicitly
+$env:PYTHON = "C:\Users\<you>\AppData\Local\Programs\Python\Python312\python.exe"
+cd backend
+make setup
+```
+
+### Option 2 — manual install
+
+```bash
+cd backend
+python3.12 -m venv .venv
+.venv/Scripts/python.exe -m pip install --upgrade pip
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+```
+
+### Verify Google ADK is installed
+
+```bash
+backend/.venv/Scripts/python.exe -c "import google.adk; print(google.adk.__version__)"
 ```
 
 Requires Node/npx on PATH — the filesystem adapter spawns the official
@@ -81,6 +113,7 @@ make test-search       # one adapter; requires BRAVE_API_KEY
 make test-cad          # one adapter
 make test-circuit      # one adapter
 make test-printer      # one adapter; requires the bridge on localhost:3001
+make test-state        # one adapter; requires GOOGLE_CLOUD_PROJECT or FIRESTORE_EMULATOR_HOST
 make test-all          # every adapter
 ```
 
@@ -99,6 +132,15 @@ The search adapter requires `BRAVE_API_KEY` in `backend/.env` (copy from
 `.env.example`) — without it, `test-search` fails fast with instructions
 instead of silently mocking results.
 
+## Run an agent query
+
+```bash
+python backend/run_agent.py "Read src/App.tsx and describe it"
+```
+
+Requires `GEMINI_API_KEY` in `backend/.env` (copy from `.env.example`).
+The agent will fail fast with setup instructions if the key is missing.
+
 ## Adding a new adapter
 
 1. `adapters/<name>/adapter.py` — connection params (MCP server command, or
@@ -110,3 +152,21 @@ instead of silently mocking results.
    to call, not everything the underlying server exposes.
 4. Add a `test-<name>` target to the `Makefile` and list it as a
    dependency of `test-all`.
+
+## Run the backend server
+
+```bash
+cd backend
+make serve
+# or directly:
+.venv/Scripts/python.exe server.py
+```
+
+Starts the FastAPI server on `http://localhost:8000` with endpoints for:
+
+- `GET /health`
+- `POST /sessions`
+- `GET /sessions/{id}`
+- `POST /sessions/{id}/chat`
+- `GET /vision/feed`
+- `POST /vision/analyze`

@@ -1,2 +1,104 @@
 # Anvil
-All Things Agentic Hackathon 
+
+AI engineering partner for hardware projects. Chat with an agent that can read
+and edit your local files, search the web, build CAD assemblies, draw wiring
+diagrams, send models to a Bambu printer, and (soon) watch live video streams.
+
+## What runs where
+
+| Service | Port | Command | Purpose |
+|---|---|---|---|
+| Vite frontend | 5173 | `npm run dev` | Main UI (panes, iframes, tools) |
+| Workshop bridge | 3001 | `npm run bridge` | Bambu printer + slicing proxy |
+| Backend API / agent | 8000 | `python backend/server.py` | Chat sessions, tools, state |
+| Code server | 8080 | `npm run code-server` | Browser VS Code on the project folder |
+| Ollama | 11434 | `ollama serve` (optional) | Local vision / telemetry models |
+
+## One-time setup
+
+### 1. Node.js
+
+The repo ships a pinned Node 20 binary under `tools/node20/`. The npm scripts
+use `cross-env` to prepend it to `PATH`, so no system Node install is required.
+
+Install frontend dependencies once:
+
+```bash
+npm install
+```
+
+### 2. Python backend
+
+Requires **Python 3.10+**.
+
+```bash
+cd backend
+python3.12 -m venv .venv
+.venv/Scripts/python.exe -m pip install --upgrade pip
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+```
+
+On Windows with no `python3` on PATH, use the full path to Python 3.12 (or
+whatever 3.10+ interpreter you have).
+
+### 3. Environment variables
+
+Copy and fill in the keys you need:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+| Variable | Needed for | Where to get one |
+|---|---|---|
+| `GEMINI_API_KEY` | Agent chat | https://aistudio.google.com/app/apikey |
+| `BRAVE_API_KEY` | Web search | https://api.search.brave.com/ |
+| `GOOGLE_CLOUD_PROJECT` | Firestore state | Google Cloud console |
+| `VISION_VIDEO_PATH` | MP4 camera stream placeholder | Path to any local `.mp4` |
+| `FFMPEG_PATH` | Vision frame extraction | Optional; `ffmpeg` on PATH is enough |
+
+## Start the whole app
+
+Open four terminals from the project root.
+
+### Terminal 1 — Workshop Bridge (printer / slicer)
+
+```bash
+npm run bridge
+```
+
+### Terminal 2 — Backend server (ADK agent + sessions + vision)
+
+```bash
+cd backend
+.venv/Scripts/python.exe server.py
+```
+
+### Terminal 3 — Browser VS Code (code server)
+
+```bash
+npm run code-server
+```
+
+### Terminal 4 — Frontend
+
+```bash
+npm run dev
+```
+
+Then open http://localhost:5173.
+
+## Optional: local Ollama for vision
+
+1. Install Ollama: https://ollama.com/download
+2. Pull a vision model: `ollama pull gemma3:4b`
+3. Start the server: `ollama serve`
+4. Set `VISION_VIDEO_PATH` to an MP4 in `backend/.env`
+5. Use `POST /vision/analyze` with a prompt
+
+## Useful URLs
+
+- Frontend: http://localhost:5173
+- Backend health: http://localhost:8000/health
+- Code server: http://localhost:8080
+- Workshop bridge: http://localhost:3001

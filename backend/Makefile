@@ -1,11 +1,21 @@
 VENV := .venv
-PY := $(VENV)/bin/python
-PIP := $(VENV)/bin/pip
 
-.PHONY: setup test-all test-filesystem clean
+# Windows venv paths use Scripts/, Unix uses bin/.
+ifeq ($(OS),Windows_NT)
+	PY := $(VENV)/Scripts/python.exe
+	PIP := $(VENV)/Scripts/python.exe -m pip
+else
+	PY := $(VENV)/bin/python
+	PIP := $(VENV)/bin/pip
+endif
+
+# Prefer an explicit python3.12 if python3 is missing or too old.
+PYTHON := $(shell command -v python3 2>/dev/null || command -v python3.12 2>/dev/null || command -v python 2>/dev/null)
+
+.PHONY: setup test-all test-filesystem test-search test-cad test-circuit test-printer test-state clean
 
 setup:
-	python3 -m venv $(VENV)
+	$(PYTHON) -m venv $(VENV)
 	$(PIP) install -q --upgrade pip
 	$(PIP) install -q -r requirements.txt
 
@@ -25,7 +35,13 @@ test-circuit:
 test-printer:
 	$(PY) -m adapters.printer.test_adapter
 
-test-all: test-filesystem test-cad test-search test-circuit test-printer
+test-state:
+	$(PY) -m adapters.state.test_adapter
+
+test-all: test-filesystem test-cad test-search test-circuit test-printer test-state
+
+serve:
+	$(PY) server.py
 
 clean:
 	rm -rf $(VENV)

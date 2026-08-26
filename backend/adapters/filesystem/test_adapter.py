@@ -4,8 +4,8 @@ Run:
     python -m adapters.filesystem.test_adapter
 
 Connects to the filesystem MCP server exactly the way ADK's MCPToolset will,
-confirms the scoped tool set is present, then exercises write -> list -> read
--> get_file_info end to end against the sandbox project directory.
+confirms the scoped tool set is present, then exercises write -> edit -> search
+-> list -> read -> get_file_info end to end against the project root.
 """
 
 import asyncio
@@ -21,6 +21,7 @@ from adapters.filesystem.adapter import PROJECT_DIR, get_server_params
 from adapters.registry import get_adapter
 
 TEST_FILE = "adapter_smoke_test.md"
+EDIT_FILE = "adapter_edit_test.py"
 
 
 async def main() -> None:
@@ -53,6 +54,35 @@ async def main() -> None:
             assert not write_result.is_error, write_result.content
             print("OK")
 
+            print(f"\n-- edit_file({TEST_FILE}) --")
+            edit_result = await session.call_tool(
+                "edit_file",
+                {
+                    "path": TEST_FILE,
+                    "edits": [
+                        {
+                            "oldText": "Written by test_adapter.py.",
+                            "newText": "Edited by edit_file via the agent filesystem tool.",
+                        }
+                    ],
+                },
+            )
+            assert not edit_result.is_error, edit_result.content
+            print(edit_result.content[0].text)
+
+            print(f"\n-- write_file({EDIT_FILE}) --")
+            await session.call_tool(
+                "write_file",
+                {"path": EDIT_FILE, "content": "def hello():\n    return 'world'\n"},
+            )
+
+            print("\n-- search_files(.py) --")
+            search_result = await session.call_tool(
+                "search_files", {"path": ".", "pattern": "adapter_edit_test.py"}
+            )
+            print(search_result.content[0].text)
+            assert EDIT_FILE in search_result.content[0].text
+
             print("\n-- list_directory(.) --")
             list_result = await session.call_tool("list_directory", {"path": "."})
             listing = list_result.content[0].text
@@ -63,7 +93,7 @@ async def main() -> None:
             read_result = await session.call_tool("read_text_file", {"path": TEST_FILE})
             content = read_result.content[0].text
             print(content)
-            assert "Adapter smoke test" in content
+            assert "Edited by edit_file" in content
 
             print(f"\n-- get_file_info({TEST_FILE}) --")
             info_result = await session.call_tool("get_file_info", {"path": TEST_FILE})
