@@ -82,9 +82,17 @@ class ProjectChatRequest(BaseModel):
     message: str
 
 
+class ToolCallInfo(BaseModel):
+    id: str
+    name: str
+    args: dict
+    result: object = None
+
+
 class ProjectChatResponse(BaseModel):
     response: str
     project_name: str
+    tool_calls: list[ToolCallInfo] = []
 
 
 # -----------------------------------------------------------------------------
@@ -210,14 +218,62 @@ async def get_session(session_id: str, user_id: str = "default") -> dict:
     event_docs = [doc.to_dict().get("event_data", {}) async for doc in events_ref.stream()]
     raw_events = sorted(event_docs, key=lambda e: e.get("timestamp", 0))
 
-    messages: list[dict] = []
+    return {"session_id": session.id, "messages": _reconstruct_messages(raw_events)}
+
+
+def _reconstruct_messages(raw_events: list[dict]) -> list[dict]:
+    """Turn a flat, timestamp-ordered list of raw ADK event dicts into
+    chat-shaped messages: one per user turn, one per assistant turn with
+    that turn's tool calls (call + result, correlated by function_call id)
+    attached — the same shape chat_project returns live, so a page refresh
+    renders identically to what was just seen. Events are grouped by
+    invocation_id: one invocation is one user message plus every
+    function_call/function_response pair the agent made answering it, plus
+    its final text — confirmed by inspecting real event data."""
+    turns: dict[str, dict] = {}
+    order: list[str] = []
     for event_data in raw_events:
+        inv = event_data.get("invocation_id") or event_data.get("id")
+        if inv not in turns:
+            turns[inv] = {"user_text": "", "calls": {}, "call_order": [], "assistant_text": ""}
+            order.append(inv)
+        turn = turns[inv]
         content = event_data.get("content") or {}
-        parts = content.get("parts") or []
-        texts = [p.get("text") for p in parts if p.get("text")]
-        if texts:
-            messages.append({"role": content.get("role") or "unknown", "text": " ".join(texts)})
-    return {"session_id": session.id, "messages": messages}
+        role = content.get("role")
+        for part in content.get("parts") or []:
+            if "function_call" in part:
+                fc = part["function_call"]
+                call_id = fc.get("id") or fc.get("name")
+                turn["calls"][call_id] = {
+                    "id": call_id,
+                    "name": fc.get("name"),
+                    "args": fc.get("args") or {},
+                    "result": None,
+                }
+                turn["call_order"].append(call_id)
+            elif "function_response" in part:
+                fr = part["function_response"]
+                call_id = fr.get("id") or fr.get("name")
+                if call_id in turn["calls"]:
+                    turn["calls"][call_id]["result"] = fr.get("response")
+            elif part.get("text"):
+                if role == "user":
+                    turn["user_text"] += part["text"]
+                elif role == "model":
+                    turn["assistant_text"] += part["text"]
+
+    messages: list[dict] = []
+    for inv in order:
+        turn = turns[inv]
+        if turn["user_text"]:
+            messages.append({"role": "user", "text": turn["user_text"]})
+        tool_calls = [turn["calls"][cid] for cid in turn["call_order"]]
+        if turn["assistant_text"] or tool_calls:
+            message = {"role": "assistant", "text": turn["assistant_text"]}
+            if tool_calls:
+                message["tool_calls"] = tool_calls
+            messages.append(message)
+    return messages
 
 
 @app.post("/sessions/{session_id}/chat", response_model=ChatResponse)
@@ -370,6 +426,8 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
 
     content = types.Content(role="user", parts=[types.Part(text=req.message)])
     response_parts: list[str] = []
+    tool_calls: dict[str, ToolCallInfo] = {}
+    tool_call_order: list[str] = []
 
     async for event in r.run_async(
         user_id=user_id,
@@ -381,9 +439,15 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
         for part in event.content.parts:
             if getattr(part, "function_call", None):
                 fc = part.function_call
+                call_id = fc.id or fc.name
+                tool_calls[call_id] = ToolCallInfo(id=call_id, name=fc.name, args=dict(fc.args or {}))
+                tool_call_order.append(call_id)
                 logger.info("tool_call: %s(%s)", fc.name, dict(fc.args or {}))
             if getattr(part, "function_response", None):
                 fr = part.function_response
+                call_id = fr.id or fr.name
+                if call_id in tool_calls:
+                    tool_calls[call_id].result = fr.response
                 logger.info("tool_result: %s -> %s", fr.name, fr.response)
         if event.is_final_response():
             for part in event.content.parts:
@@ -391,6 +455,7 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
                     response_parts.append(part.text)
 
     response_text = "\n".join(response_parts)
+    ordered_tool_calls = [tool_calls[cid] for cid in tool_call_order]
     project_name = project.get("name") or "New Project"
 
     if project_name in ("New Project", ""):
@@ -420,7 +485,9 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
         "session_id": session_id,
     })
 
-    return ProjectChatResponse(response=response_text, project_name=project_name)
+    return ProjectChatResponse(
+        response=response_text, project_name=project_name, tool_calls=ordered_tool_calls
+    )
 
 
 # -----------------------------------------------------------------------------

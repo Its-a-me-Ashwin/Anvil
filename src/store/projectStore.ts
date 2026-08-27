@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getProjectState, type ProjectState as ProjectStateData } from '../services/agentService';
+import { getProjectState, type ProjectState as ProjectStateData, type ToolCall } from '../services/agentService';
 
 export interface Project {
   id: string;
@@ -12,6 +12,7 @@ export interface Project {
 export interface ChatMessage {
   role: 'user' | 'assistant' | string;
   text: string;
+  tool_calls?: ToolCall[];
 }
 
 interface ProjectStoreState {
@@ -20,7 +21,7 @@ interface ProjectStoreState {
   messages: ChatMessage[];
   projectState: ProjectStateData | null;
   setCurrentProject: (project: Project | null, messages?: ChatMessage[]) => void;
-  addMessage: (role: ChatMessage['role'], text: string) => void;
+  addMessage: (role: ChatMessage['role'], text: string, tool_calls?: ToolCall[]) => void;
   loadProjects: () => Promise<void>;
   clearCurrentProject: () => void;
   refreshProjectState: (projectId: string) => Promise<void>;
@@ -43,9 +44,9 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
       projectState: null,
     })),
 
-  addMessage: (role, text) =>
+  addMessage: (role, text, tool_calls) =>
     set((state) => ({
-      messages: [...state.messages, { role, text }],
+      messages: [...state.messages, tool_calls?.length ? { role, text, tool_calls } : { role, text }],
     })),
 
   loadProjects: async () => {

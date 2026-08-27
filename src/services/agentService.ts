@@ -12,14 +12,22 @@ export interface ProjectListResponse {
   projects: Project[];
 }
 
+export interface ToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  result: unknown;
+}
+
 export interface ChatResponse {
   response: string;
   project_name: string;
+  tool_calls?: ToolCall[];
 }
 
 export interface SessionResponse {
   session_id: string;
-  messages: { role: string; text: string }[];
+  messages: { role: string; text: string; tool_calls?: ToolCall[] }[];
 }
 
 export interface Constraint {

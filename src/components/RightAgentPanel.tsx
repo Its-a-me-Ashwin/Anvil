@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Send, Mic, Bot, CheckCircle2, Loader2 } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore';
 import { chatProject, getSession } from '../services/agentService';
+import ToolCallCard from './ToolCallCard';
 
 export default function RightAgentPanel() {
   const [tab, setTab] = useState<'chat' | 'activity' | 'memory'>('chat');
@@ -34,7 +35,7 @@ export default function RightAgentPanel() {
         if (sendingRef.current) return;
         const history = (data.messages || [])
           .filter((m) => m.role === 'user' || m.role === 'assistant')
-          .map((m) => ({ role: m.role, text: m.text }));
+          .map((m) => (m.tool_calls?.length ? { role: m.role, text: m.text, tool_calls: m.tool_calls } : { role: m.role, text: m.text }));
         setCurrentProject(currentProject, history);
       } catch {
         // Leave messages empty if history cannot be loaded.
@@ -58,7 +59,7 @@ export default function RightAgentPanel() {
     try {
       const project = currentProject;
       const data = await chatProject(project.id, text);
-      addMessage('assistant', data.response);
+      addMessage('assistant', data.response, data.tool_calls);
       if (project.name !== data.project_name) {
         setCurrentProject({ ...project, name: data.project_name });
       }
@@ -128,7 +129,14 @@ export default function RightAgentPanel() {
                 <Bot className="w-3.5 h-3.5 text-anvil-accent" />
                 <span className="font-medium text-anvil-accent">Anvil</span>
               </div>
-              {msg.text}
+              {msg.tool_calls && msg.tool_calls.length > 0 && (
+                <div className="space-y-1.5 mb-2">
+                  {msg.tool_calls.map((call) => (
+                    <ToolCallCard key={call.id} call={call} />
+                  ))}
+                </div>
+              )}
+              {msg.text && <div>{msg.text}</div>}
             </div>
           )
         )}
