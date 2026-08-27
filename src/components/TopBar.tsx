@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Cloud, Wifi, Settings, Printer, Save, Trash2, X, Search, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { loadPrinterConfig, savePrinterConfig, deletePrinterConfig, registerPrinterWithBridge, discoverPrinters, type PrinterConfig } from '../services/slicerService';
+import { getProject } from '../services/agentService';
+import { useProjectStore } from '../store/projectStore';
 
 const PRINTER_MODELS: PrinterConfig['model'][] = ['p1p', 'p1s', 'x1c', 'x1e', 'a1', 'a1mini', 'h2d', 'h2s', 'h2c'];
 
@@ -19,6 +21,9 @@ export default function TopBar() {
   const [discovering, setDiscovering] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const projectRef = useRef<HTMLDivElement>(null);
+
+  const { projects, currentProject, loadProjects, setCurrentProject, clearCurrentProject } = useProjectStore();
 
   const [form, setForm] = useState<PrinterConfig>({
     name: '',
@@ -27,6 +32,10 @@ export default function TopBar() {
     accessCode: '',
     model: 'p1p',
   });
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   useEffect(() => {
     if (printer) setForm(printer);
@@ -38,10 +47,13 @@ export default function TopBar() {
       if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
         setSettingsOpen(false);
       }
+      if (projectRef.current && !projectRef.current.contains(e.target as Node)) {
+        setProjectOpen(false);
+      }
     };
-    if (settingsOpen) document.addEventListener('mousedown', handle);
+    document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
-  }, [settingsOpen]);
+  }, []);
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.host.trim() || !form.serialNumber.trim() || !form.accessCode.trim()) {
@@ -100,6 +112,22 @@ export default function TopBar() {
     setForm({ name: '', host: '', serialNumber: '', accessCode: '', model: 'p1p' });
   };
 
+  const selectProject = async (project: typeof currentProject) => {
+    if (!project) return;
+    try {
+      const full = await getProject(project.id);
+      setCurrentProject(full);
+    } catch {
+      setCurrentProject(project);
+    }
+    setProjectOpen(false);
+  };
+
+  const startNewProject = () => {
+    clearCurrentProject();
+    setProjectOpen(false);
+  };
+
   return (
     <div className="h-14 shrink-0 bg-anvil-panel border-b border-anvil-border flex items-center justify-between px-4 z-20">
       <div className="flex items-center gap-6">
@@ -108,37 +136,35 @@ export default function TopBar() {
           <span className="font-semibold tracking-tight text-white">ANVIL</span>
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={projectRef}>
           <button
             onClick={() => setProjectOpen(!projectOpen)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-anvil-panelHover border border-anvil-border hover:border-anvil-accent transition text-sm"
           >
             <span className="text-anvil-muted">Project:</span>
-            <span className="font-medium text-white">Robot Actuator V1</span>
+            <span className="font-medium text-white">{currentProject?.name || 'New Project'}</span>
             <ChevronDown className="w-4 h-4 text-anvil-muted" />
           </button>
 
           {projectOpen && (
             <div className="absolute top-full left-0 mt-2 w-64 rounded-lg bg-anvil-panelHover border border-anvil-border shadow-xl z-50 overflow-hidden">
               <div className="px-3 py-2 text-xs font-semibold text-anvil-muted uppercase tracking-wider">Recent Projects</div>
-              {[
-                { name: 'Robot Actuator V1', status: 'active' },
-                { name: 'RC Plane Telemetry', status: 'warning' },
-                { name: 'Custom Drone Frame', status: 'idle' },
-              ].map((p) => (
+              {projects.map((p) => (
                 <button
-                  key={p.name}
+                  key={p.id}
+                  onClick={() => selectProject(p)}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-anvil-border flex items-center gap-2 text-anvil-text"
                 >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      p.status === 'active' ? 'bg-anvil-success' : p.status === 'warning' ? 'bg-anvil-warning' : 'bg-anvil-muted'
-                    }`}
-                  />
+                  <span className="w-1.5 h-1.5 rounded-full bg-anvil-success" />
                   {p.name}
                 </button>
               ))}
-              <button className="w-full text-left px-3 py-2 text-sm hover:bg-anvil-border text-anvil-text">+ New Project</button>
+              <button
+                onClick={startNewProject}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-anvil-border text-anvil-text"
+              >
+                + New Project
+              </button>
             </div>
           )}
         </div>

@@ -1,9 +1,67 @@
-import { useState } from 'react';
-import { Send, Mic, Bot, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Send, Mic, Bot, CheckCircle2, Loader2 } from 'lucide-react';
+import { useProjectStore } from '../store/projectStore';
+import { chatProject, createProject, getSession } from '../services/agentService';
 
 export default function RightAgentPanel() {
   const [tab, setTab] = useState<'chat' | 'activity' | 'memory'>('chat');
   const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { messages, currentProject, setCurrentProject, addMessage } = useProjectStore();
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    async function loadHistory() {
+      if (!currentProject?.session_id) return;
+      try {
+        const data = await getSession(currentProject.session_id);
+        const history = (data.messages || [])
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({ role: m.role, text: m.text }));
+        setCurrentProject(currentProject, history);
+      } catch {
+        // Leave messages empty if history cannot be loaded.
+      }
+    }
+    loadHistory();
+  }, [currentProject?.id]);
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text || sending) return;
+
+    addMessage('user', text);
+    setInput('');
+    setSending(true);
+
+    try {
+      let project = currentProject;
+      if (!project) {
+        project = await createProject();
+        setCurrentProject(project);
+      }
+      const data = await chatProject(project.id, text);
+      addMessage('assistant', data.response);
+      if (project.name !== data.project_name) {
+        setCurrentProject({ ...project, name: data.project_name });
+      }
+    } catch (err: any) {
+      addMessage('assistant', `Error: ${err?.message || 'Failed to reach agent.'}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleSend();
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -29,15 +87,15 @@ export default function RightAgentPanel() {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         <div className="rounded-lg bg-anvil-panelHover border border-anvil-border p-3">
           <div className="flex items-start gap-3">
             <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-3.5 h-3.5 text-anvil-success" />
             </div>
             <div>
-              <p className="text-sm font-medium text-white">Working on CAD Design</p>
-              <p className="text-xs text-anvil-muted mt-0.5">Designing actuator housing with 608 bearing.</p>
+              <p className="text-sm font-medium text-white">Working on {currentProject?.name || 'New Project'}</p>
+              <p className="text-xs text-anvil-muted mt-0.5">Ask questions or give instructions to start designing.</p>
               <div className="w-full h-1.5 bg-anvil-bg rounded-full mt-2 overflow-hidden">
                 <div className="h-full bg-anvil-success w-[78%]" />
               </div>
@@ -45,17 +103,21 @@ export default function RightAgentPanel() {
           </div>
         </div>
 
-        <div className="self-start bg-anvil-panelHover border border-anvil-border rounded-2xl rounded-tl-sm p-3 text-xs leading-relaxed text-anvil-text max-w-[92%]">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Bot className="w-3.5 h-3.5 text-anvil-accent" />
-            <span className="font-medium text-anvil-accent">Anvil</span>
-          </div>
-          I've updated the design to use the 608 bearing from your inventory. This increases the housing width by 5 mm but keeps everything else within constraints.
-        </div>
-
-        <div className="self-end bg-anvil-accent text-white rounded-2xl rounded-tr-sm p-3 text-xs leading-relaxed max-w-[92%] ml-auto">
-          Looks good. Don't change the motor mount pattern or outer diameter.
-        </div>
+        {messages.map((msg, idx) =>
+          msg.role === 'user' ? (
+            <div key={idx} className="self-end bg-anvil-accent text-white rounded-2xl rounded-tr-sm p-3 text-xs leading-relaxed max-w-[92%] ml-auto">
+              {msg.text}
+            </div>
+          ) : (
+            <div key={idx} className="self-start bg-anvil-panelHover border border-anvil-border rounded-2xl rounded-tl-sm p-3 text-xs leading-relaxed text-anvil-text max-w-[92%]">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Bot className="w-3.5 h-3.5 text-anvil-accent" />
+                <span className="font-medium text-anvil-accent">Anvil</span>
+              </div>
+              {msg.text}
+            </div>
+          )
+        )}
       </div>
 
       <div className="p-3 border-t border-anvil-border bg-anvil-panel shrink-0">
@@ -64,14 +126,20 @@ export default function RightAgentPanel() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Ask Anvil anything or give an instruction..."
             className="flex-1 bg-transparent border-none outline-none text-xs text-anvil-text placeholder-anvil-muted"
+            disabled={sending}
           />
           <button className="text-anvil-muted hover:text-white">
             <Mic className="w-4 h-4" />
           </button>
-          <button className="w-7 h-7 rounded bg-anvil-accent hover:bg-blue-600 flex items-center justify-center text-white">
-            <Send className="w-4 h-4" />
+          <button
+            onClick={handleSend}
+            disabled={sending || !input.trim()}
+            className="w-7 h-7 rounded bg-anvil-accent hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-white"
+          >
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
         </div>
       </div>

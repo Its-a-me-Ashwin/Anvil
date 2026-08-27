@@ -24,16 +24,9 @@ interface WorkspaceState {
 
 let counter = 0;
 
-const initialTabs: WorkspaceTab[] = [
-  { id: 'tab-search', title: 'Brave Search', type: 'search' },
-  { id: 'tab-codeserver', title: 'code-server', type: 'codeserver', url: 'http://localhost:8080' },
-  { id: 'tab-youtube', title: 'YouTube', type: 'youtube', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
-  { id: 'tab-pdf', title: 'AS5600.pdf', type: 'pdf', url: 'https://www.example.com/AS5600.pdf' },
-];
-
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
-  tabs: initialTabs,
-  activeTabId: 'tab-onshape',
+  tabs: [],
+  activeTabId: null,
 
   addTab: (tab) => {
     const id = `tab-${++counter}-${Date.now()}`;

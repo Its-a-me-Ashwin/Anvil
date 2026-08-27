@@ -2,6 +2,7 @@
 
 Provides:
 - chat sessions with session memory via Google ADK
+- project persistence through Firestore when configured
 - project state tools through adapters/registry.py
 - a minimal MP4-based vision feed endpoint
 """
@@ -13,6 +14,7 @@ import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncGenerator
 
@@ -22,7 +24,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from google.adk import Runner
 from google.adk.sessions import InMemorySessionService
-from google.genai import types
+from google.genai import Client, types
+from google.cloud import firestore
 from pydantic import BaseModel
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -37,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 APP_NAME = "anvil"
 runner: Runner | None = None
+USE_FIRESTORE = False
 
 # -----------------------------------------------------------------------------
 # Pydantic models
@@ -68,6 +72,19 @@ class AnalyzeRequest(BaseModel):
     timestamp: str = "00:00:01"
 
 
+class ProjectCreateRequest(BaseModel):
+    name: str | None = "New Project"
+
+
+class ProjectChatRequest(BaseModel):
+    message: str
+
+
+class ProjectChatResponse(BaseModel):
+    response: str
+    project_name: str
+
+
 # -----------------------------------------------------------------------------
 # Lifespan
 # -----------------------------------------------------------------------------
@@ -75,13 +92,23 @@ class AnalyzeRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global runner
+    global runner, USE_FIRESTORE
     dotenv.load_dotenv(BACKEND_DIR / ".env")
+    USE_FIRESTORE = bool(os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("FIRESTORE_EMULATOR_HOST"))
     logger.info("Building Anvil agent tools...")
     tools = await anvil_agent.build_tools_async()
     anvil = anvil_agent.build_agent(tools=tools)
     logger.info("Loaded %s tools.", len(tools))
-    session_service = InMemorySessionService()
+
+    if USE_FIRESTORE:
+        from google.adk.integrations.firestore.firestore_session_service import FirestoreSessionService
+
+        logger.info("Using FirestoreSessionService for persistence.")
+        session_service = FirestoreSessionService(root_collection="sessions")
+    else:
+        logger.info("Using InMemorySessionService; project persistence disabled.")
+        session_service = InMemorySessionService()
+
     runner = Runner(
         app_name=APP_NAME,
         agent=anvil,
@@ -111,6 +138,21 @@ def _runner() -> Runner:
     if runner is None:
         raise HTTPException(status_code=503, detail="Agent runner not ready")
     return runner
+
+
+def _firestore_client() -> firestore.AsyncClient:
+    r = _runner()
+    if not USE_FIRESTORE or not hasattr(r.session_service, "client"):
+        raise HTTPException(status_code=503, detail="Firestore persistence is not configured")
+    return r.session_service.client
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _projects_collection() -> firestore.AsyncCollectionReference:
+    return _firestore_client().collection("projects")
 
 
 # -----------------------------------------------------------------------------
@@ -200,6 +242,142 @@ async def chat(session_id: str, req: ChatRequest) -> ChatResponse:
 
 
 # -----------------------------------------------------------------------------
+# Projects
+# -----------------------------------------------------------------------------
+
+
+@app.get("/projects")
+async def list_projects() -> dict:
+    col = _projects_collection()
+    docs = await col.order_by("updated_at", direction=firestore.Query.DESCENDING).get()
+    projects = []
+    for doc in docs:
+        data = doc.to_dict()
+        projects.append({
+            "id": doc.id,
+            "name": data.get("name", "New Project"),
+            "created_at": data.get("created_at"),
+            "updated_at": data.get("updated_at"),
+        })
+    return {"projects": projects}
+
+
+@app.post("/projects")
+async def create_project(req: ProjectCreateRequest) -> dict:
+    r = _runner()
+    col = _projects_collection()
+    user_id = "default"
+    now = _now()
+    doc_ref = col.document()
+
+    session = await r.session_service.create_session(
+        app_name=APP_NAME,
+        user_id=user_id,
+        state={},
+    )
+
+    await doc_ref.set({
+        "name": req.name or "New Project",
+        "user_id": user_id,
+        "created_at": now,
+        "updated_at": now,
+        "session_id": session.id,
+    })
+
+    return {
+        "id": doc_ref.id,
+        "name": req.name or "New Project",
+        "session_id": session.id,
+    }
+
+
+@app.get("/projects/{project_id}")
+async def get_project(project_id: str) -> dict:
+    doc = await _projects_collection().document(project_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+    data = doc.to_dict()
+    return {
+        "id": doc.id,
+        "name": data.get("name", "New Project"),
+        "user_id": data.get("user_id", "default"),
+        "created_at": data.get("created_at"),
+        "updated_at": data.get("updated_at"),
+        "session_id": data.get("session_id"),
+    }
+
+
+@app.post("/projects/{project_id}/chat", response_model=ProjectChatResponse)
+async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatResponse:
+    r = _runner()
+    user_id = "default"
+    col = _projects_collection()
+    doc_ref = col.document(project_id)
+    doc = await doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project = doc.to_dict()
+    session_id = project.get("session_id")
+
+    if not session_id:
+        session = await r.session_service.create_session(
+            app_name=APP_NAME,
+            user_id=user_id,
+            state={},
+        )
+        session_id = session.id
+        await doc_ref.update({"session_id": session_id})
+
+    content = types.Content(role="user", parts=[types.Part(text=req.message)])
+    response_parts: list[str] = []
+
+    async for event in r.run_async(
+        user_id=user_id,
+        session_id=session_id,
+        new_message=content,
+    ):
+        if not event.content:
+            continue
+        if event.is_final_response():
+            for part in event.content.parts:
+                if part.text:
+                    response_parts.append(part.text)
+
+    response_text = "\n".join(response_parts)
+    project_name = project.get("name") or "New Project"
+
+    if project_name in ("New Project", ""):
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if api_key:
+            try:
+                client = Client(api_key=api_key)
+                prompt = (
+                    f"Suggest a short project name (max 4 words) for this chat:\n"
+                    f"User: {req.message}\n"
+                    f"Assistant: {response_text}\n"
+                    "Return only the name."
+                )
+                suggestion = await client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=[prompt],
+                )
+                suggested = (suggestion.text or "").strip().strip('"').strip("'")
+                if suggested:
+                    project_name = suggested
+            except Exception as exc:
+                logger.warning("Failed to suggest project name: %s", exc)
+
+    await doc_ref.update({
+        "name": project_name,
+        "updated_at": _now(),
+        "session_id": session_id,
+    })
+
+    return ProjectChatResponse(response=response_text, project_name=project_name)
+
+
+# -----------------------------------------------------------------------------
 # Vision feed (MP4 placeholder)
 # -----------------------------------------------------------------------------
 
@@ -223,7 +401,6 @@ async def vision_analyze(req: AnalyzeRequest) -> dict:
 # -----------------------------------------------------------------------------
 # Entry point
 # -----------------------------------------------------------------------------
-
 if __name__ == "__main__":
     import uvicorn
 
