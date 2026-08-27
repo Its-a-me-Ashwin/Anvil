@@ -110,7 +110,7 @@ def build_tools() -> list:
 
 
 def build_agent(
-    model: str = "gemini-2.0-flash",
+    model: str = "gemini-3.6-flash",
     tools: list | None = None,
 ) -> Agent:
     """Build the Anvil engineering partner agent."""
