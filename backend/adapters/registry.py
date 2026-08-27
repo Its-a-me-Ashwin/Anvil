@@ -81,17 +81,32 @@ ADAPTERS: list[AdapterEntry] = [
     ),
     AdapterEntry(
         name="state",
-        description="Firestore-backed project state: inventory, constraints, objectives, decisions, artifacts.",
+        description=(
+            "Firestore-backed project state: objective, constraints, inventory, "
+            "progress (objectives), decisions, data sources, artifacts. Every "
+            "entity that can be added can also be updated/toggled and removed."
+        ),
         backing="custom",
         scope=[
             "read_project_summary",
+            "set_project_objective",
+            "read_project_objective",
+            "add_inventory_item",
             "read_inventory",
             "update_inventory",
+            "remove_inventory_item",
             "add_constraint",
             "read_constraints",
+            "update_constraint",
+            "remove_constraint",
             "add_objective",
-            "mark_objective_done",
             "read_objectives",
+            "mark_objective_done",
+            "mark_objective_undone",
+            "remove_objective",
+            "add_data_source",
+            "read_data_sources",
+            "remove_data_source",
             "record_decision",
             "approve_decision",
             "read_decisions",
