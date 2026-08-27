@@ -79,8 +79,8 @@ async def lifespan(app: FastAPI):
     dotenv.load_dotenv(BACKEND_DIR / ".env")
     logger.info("Building Anvil agent tools...")
     tools = await anvil_agent.build_tools_async()
-    logger.info("Loaded %s tools.", len(tools))
     anvil = anvil_agent.build_agent(tools=tools)
+    logger.info("Loaded %s tools.", len(tools))
     session_service = InMemorySessionService()
     runner = Runner(
         app_name=APP_NAME,

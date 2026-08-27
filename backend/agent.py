@@ -20,6 +20,7 @@ from typing import Callable
 
 from google.adk.agents import Agent
 from google.adk.tools.function_tool import FunctionTool
+from google.adk.tools.google_search_tool import google_search
 from google.adk.tools.mcp_tool import MCPToolset
 
 # Make the adapter modules resolvable whether this file is imported as
@@ -37,7 +38,6 @@ logger = logging.getLogger(__name__)
 # agent only sees the names listed in registry.py via tool_filter.
 _MCP_PARAMS: dict[str, str] = {
     "filesystem": "adapters.filesystem.adapter.get_server_params",
-    "search": "adapters.search.adapter.get_server_params",
 }
 
 # Map each custom adapter name to its Python module path.  Functions listed in
@@ -110,12 +110,15 @@ def build_tools() -> list:
 
 
 def build_agent(
-    model: str = "gemini-3.5-flash",
+    model: str = "gemini-2.0-flash",
     tools: list | None = None,
 ) -> Agent:
     """Build the Anvil engineering partner agent."""
     if tools is None:
         tools = build_tools()
+
+    # Gemini's built-in Google Search tool. Works with Gemini 2.0+ models.
+    tools.append(google_search)
 
     return Agent(
         model=model,
@@ -124,9 +127,9 @@ def build_agent(
         instruction=(
             "You are Anvil, a collaborative engineering partner. You help the user "
             "design, simulate, and build hardware projects. You can read and edit "
-            "files in the active project directory, search the web, build parametric "
-            "CAD assemblies, draw wiring diagrams, and send models to a 3D printer "
-            "via the Workshop Bridge. "
+            "files in the active project directory, search the web with Google Search, "
+            "build parametric CAD assemblies, draw wiring diagrams, and send models to a "
+            "3D printer via the Workshop Bridge. "
             "Before destructive actions (writing files, slicing, printing, exporting), "
             "ask the user for approval unless they have explicitly told you to proceed. "
             "Be concise, explain your reasoning, and surface tool results clearly."

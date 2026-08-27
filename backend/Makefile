@@ -23,9 +23,6 @@ setup:
 test-filesystem:
 	$(PY) -m adapters.filesystem.test_adapter
 
-test-search:
-	$(PY) -m adapters.search.test_adapter
-
 test-cad:
 	$(PY) -m adapters.cad.test_adapter
 
@@ -38,7 +35,7 @@ test-printer:
 test-state:
 	$(PY) -m adapters.state.test_adapter
 
-test-all: test-filesystem test-cad test-search test-circuit test-printer test-state
+test-all: test-filesystem test-cad test-circuit test-printer test-state
 
 serve:
 	$(PY) server.py

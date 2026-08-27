@@ -12,6 +12,7 @@ diagrams, send models to a Bambu printer, and (soon) watch live video streams.
 | Workshop bridge | 3001 | `npm run bridge` | Bambu printer + slicing proxy |
 | Backend API / agent | 8000 | `python backend/server.py` | Chat sessions, tools, state |
 | Code server | 8080 | `npm run code-server` | Browser VS Code on the project folder |
+| Firestore emulator | 8200 | docker | Local project state DB |
 | Ollama | 11434 | `ollama serve` (optional) | Local vision / telemetry models |
 
 ## One-time setup
@@ -52,7 +53,6 @@ cp backend/.env.example backend/.env
 | Variable | Needed for | Where to get one |
 |---|---|---|
 | `GEMINI_API_KEY` | Agent chat | https://aistudio.google.com/app/apikey |
-| `BRAVE_API_KEY` | Web search | https://api.search.brave.com/ |
 | `GOOGLE_CLOUD_PROJECT` | Firestore state | Google Cloud console |
 | `VISION_VIDEO_PATH` | MP4 camera stream placeholder | Path to any local `.mp4` |
 | `FFMPEG_PATH` | Vision frame extraction | Optional; `ffmpeg` on PATH is enough |
@@ -102,3 +102,7 @@ Then open http://localhost:5173.
 - Backend health: http://localhost:8000/health
 - Code server: http://localhost:8080
 - Workshop bridge: http://localhost:3001
+
+## Deploy to Google Cloud
+
+See [`deploy.md`](deploy.md) for Cloud Run + Firestore setup.

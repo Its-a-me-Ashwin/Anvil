@@ -39,13 +39,6 @@ ADAPTERS: list[AdapterEntry] = [
         status="testing",
     ),
     AdapterEntry(
-        name="search",
-        description="Web search and agent-optimized page context via Brave Search.",
-        backing="mcp",
-        scope=["brave_web_search", "brave_llm_context"],
-        status="testing",
-    ),
-    AdapterEntry(
         name="cad",
         description=(
             "Parametric multi-part CAD assemblies via build123d: create primitive "

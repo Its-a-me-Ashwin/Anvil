@@ -1,0 +1,256 @@
+#!/usr/bin/env bash
+# Anvil local orchestration script.
+# Usage:
+#   ./anvil-run --status
+#   ./anvil-run --start [service]
+#   ./anvil-run --stop [service]
+#
+# Services: firestore, bridge, backend, code-server, frontend
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+RUNDIR="$ROOT/.anvil-workshop"
+LOGDIR="$RUNDIR/logs"
+PIDDIR="$RUNDIR/pids"
+
+mkdir -p "$LOGDIR" "$PIDDIR"
+
+port_pid() {
+  local port="$1"
+  netstat -ano 2>/dev/null | grep -E ":$port\s+" | grep LISTENING | awk '{print $5}' | head -n1
+}
+
+wait_for_port() {
+  local svc="$1" port="$2"
+  local i pid
+  for i in $(seq 1 20); do
+    pid="$(port_pid "$port" || true)"
+    if [ -n "$pid" ]; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+service_port() {
+  case "$1" in
+    firestore) echo 8200 ;;
+    bridge) echo 3001 ;;
+    backend) echo 8000 ;;
+    code-server) echo 8080 ;;
+    frontend) echo 5173 ;;
+    *) echo "" ;;
+  esac
+}
+
+service_label() {
+  case "$1" in
+    firestore) echo "Firestore emulator" ;;
+    bridge) echo "Workshop bridge" ;;
+    backend) echo "Backend API" ;;
+    code-server) echo "Code server" ;;
+    frontend) echo "Frontend" ;;
+    *) echo "$1" ;;
+  esac
+}
+
+status_service() {
+  local svc="$1"
+  if [ "$svc" = "firestore" ]; then
+    local cid
+    cid="$(docker ps -q -f name=firestore-emulator 2>/dev/null || true)"
+    if [ -n "$cid" ]; then
+      printf "running (docker %s)\n" "$cid"
+    else
+      printf "not running\n"
+    fi
+    return
+  fi
+
+  local port pid
+  port="$(service_port "$svc")"
+  pid="$(port_pid "$port" || true)"
+  if [ -n "$pid" ]; then
+    printf "running (pid %s)\n" "$pid"
+  else
+    printf "not running\n"
+  fi
+}
+
+cmd_status() {
+  printf "%-20s %s\n" "Service" "Status"
+  printf "%-20s %s\n" "-------" "------"
+  for svc in firestore bridge backend code-server frontend; do
+    printf "%-20s %s\n" "$(service_label "$svc")" "$(status_service "$svc")"
+  done
+}
+
+stop_service() {
+  local svc="$1"
+  echo "Stopping $(service_label "$svc")..."
+
+  if [ "$svc" = "firestore" ]; then
+    docker stop firestore-emulator >/dev/null 2>&1 || true
+    docker rm firestore-emulator >/dev/null 2>&1 || true
+    return
+  fi
+
+  local pidfile="$PIDDIR/$svc.pid"
+  if [ -f "$pidfile" ]; then
+    local pid
+    pid="$(cat "$pidfile" 2>/dev/null || true)"
+    if [ -n "$pid" ]; then
+      cmd //c "taskkill /F /T /PID $pid" >/dev/null 2>&1 || true
+    fi
+    rm -f "$pidfile"
+  fi
+
+  # Fallback: kill anything still listening on the port.
+  local port
+  port="$(service_port "$svc")"
+  pid="$(port_pid "$port" || true)"
+  if [ -n "$pid" ]; then
+    cmd //c "taskkill /F /PID $pid" >/dev/null 2>&1 || true
+  fi
+}
+
+start_service() {
+  local svc="$1"
+  local port
+  port="$(service_port "$svc")"
+
+  # Restart if already running.
+  if [ "$svc" != "firestore" ]; then
+    local current_pid
+    current_pid="$(port_pid "$port" || true)"
+    if [ -n "$current_pid" ]; then
+      stop_service "$svc"
+      sleep 1
+    fi
+  else
+    local cid
+    cid="$(docker ps -q -f name=firestore-emulator 2>/dev/null || true)"
+    if [ -n "$cid" ]; then
+      stop_service "$svc"
+      sleep 2
+    fi
+  fi
+
+  echo "Starting $(service_label "$svc")..."
+
+  case "$svc" in
+    firestore)
+      docker run -d \
+        --name firestore-emulator \
+        --rm \
+        -p 8200:8200 \
+        -e FIRESTORE_PROJECT_ID=anvil-local \
+        -e PORT=8200 \
+        mtlynch/firestore-emulator-docker \
+        >"$LOGDIR/firestore.log" 2>&1
+      ;;
+    bridge)
+      cd "$ROOT"
+      nohup npm run bridge >"$LOGDIR/bridge.log" 2>&1 &
+      echo $! >"$PIDDIR/bridge.pid"
+      ;;
+    backend)
+      cd "$ROOT/backend"
+      nohup .venv/Scripts/python.exe server.py >"$LOGDIR/backend.log" 2>&1 &
+      echo $! >"$PIDDIR/backend.pid"
+      ;;
+    code-server)
+      cd "$ROOT"
+      nohup npm run code-server >"$LOGDIR/code-server.log" 2>&1 &
+      echo $! >"$PIDDIR/code-server.pid"
+      ;;
+    frontend)
+      cd "$ROOT"
+      nohup npm run dev >"$LOGDIR/frontend.log" 2>&1 &
+      echo $! >"$PIDDIR/frontend.pid"
+      ;;
+  esac
+
+  if [ "$svc" = "firestore" ]; then
+    sleep 2
+  else
+    if ! wait_for_port "$svc" "$port"; then
+      echo "  -> failed to start (see .anvil-workshop/logs/$svc.log)"
+      tail -n 20 "$LOGDIR/$svc.log" 2>/dev/null || true
+      return
+    fi
+  fi
+  local final_status
+  final_status="$(status_service "$svc")"
+  echo "  -> $final_status"
+}
+
+cmd_start() {
+  local target="${1:-}"
+  if [ -z "$target" ] || [ "$target" = "all" ]; then
+    start_service firestore
+    start_service bridge
+    start_service backend
+    start_service code-server
+    start_service frontend
+  else
+    if [ -z "$(service_port "$target")" ]; then
+      echo "Unknown service: $target"
+      echo "Use: firestore, bridge, backend, code-server, frontend"
+      exit 1
+    fi
+    start_service "$target"
+  fi
+}
+
+cmd_stop() {
+  local target="${1:-}"
+  if [ -z "$target" ] || [ "$target" = "all" ]; then
+    stop_service frontend
+    stop_service code-server
+    stop_service backend
+    stop_service bridge
+    stop_service firestore
+  else
+    if [ -z "$(service_port "$target")" ]; then
+      echo "Unknown service: $target"
+      echo "Use: firestore, bridge, backend, code-server, frontend"
+      exit 1
+    fi
+    stop_service "$target"
+  fi
+}
+
+usage() {
+  cat <<EOF
+Anvil local runner
+
+Usage:
+  ./anvil-run --status
+  ./anvil-run --start [service|all]
+  ./anvil-run --stop [service|all]
+
+Services: firestore, bridge, backend, code-server, frontend
+EOF
+}
+
+main() {
+  case "${1:-}" in
+    --status)
+      cmd_status
+      ;;
+    --start)
+      cmd_start "${2:-}"
+      ;;
+    --stop)
+      cmd_stop "${2:-}"
+      ;;
+    --help|-h|*)
+      usage
+      ;;
+  esac
+}
+
+main "$@"
