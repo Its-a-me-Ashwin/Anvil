@@ -145,9 +145,8 @@ start_service() {
       docker run -d \
         --name firestore-emulator \
         --rm \
-        -p 8200:8200 \
+        -p 8200:8080 \
         -e FIRESTORE_PROJECT_ID=anvil-local \
-        -e PORT=8200 \
         mtlynch/firestore-emulator-docker \
         >"$LOGDIR/firestore.log" 2>&1
       ;;
