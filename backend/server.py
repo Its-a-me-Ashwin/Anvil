@@ -9,6 +9,7 @@ Provides:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import sys
@@ -33,6 +34,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import agent as anvil_agent
+from adapters.state.adapter import read_project_summary
 from workers import vision as vision_worker
 
 logging.basicConfig(level=logging.INFO)
@@ -305,6 +307,21 @@ async def get_project(project_id: str) -> dict:
         "updated_at": data.get("updated_at"),
         "session_id": data.get("session_id"),
     }
+
+
+@app.get("/projects/{project_id}/state")
+async def get_project_state(project_id: str) -> dict:
+    """Everything the left panel needs: objective, constraints, inventory,
+    progress (objectives), decisions, data sources, artifacts. Backed by the
+    same state adapter the agent's tools use, so this reflects tool calls
+    made during chat, not a separate copy of the data."""
+    doc = await _projects_collection().document(project_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+    # read_project_summary is sync (google.cloud.firestore.Client, shared
+    # with the agent's FunctionTools) — run it off the event loop so a slow
+    # Firestore round-trip doesn't block other requests.
+    return await asyncio.to_thread(read_project_summary, project_id)
 
 
 @app.post("/projects/{project_id}/chat", response_model=ProjectChatResponse)
