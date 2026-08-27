@@ -43,8 +43,18 @@ function App() {
 
         <ResizableHandle direction="horizontal" onResize={handleLeftResize} />
 
-        <div className="flex-1 min-w-0 bg-anvil-bg flex flex-col">
-          <CenterWorkspace />
+        {/* Center workspace + bottom data strip stacked; right panel sits
+            outside this column so chat spans the full app height. */}
+        <div className="flex-1 min-w-0 flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 bg-anvil-bg flex flex-col">
+            <CenterWorkspace />
+          </div>
+
+          <ResizableHandle direction="vertical" onResize={handleBottomResize} />
+
+          <div style={{ height: bottomHeight, minHeight: MIN_BOTTOM, maxHeight: MAX_BOTTOM }} className="bg-anvil-panel flex flex-col">
+            <BottomDataStrip />
+          </div>
         </div>
 
         <ResizableHandle direction="horizontal" onResize={handleRightResize} />
@@ -52,12 +62,6 @@ function App() {
         <div style={{ width: rightWidth, minWidth: MIN_RIGHT, maxWidth: MAX_RIGHT }} className="bg-anvil-panel flex flex-col">
           <RightAgentPanel />
         </div>
-      </div>
-
-      <ResizableHandle direction="vertical" onResize={handleBottomResize} />
-
-      <div style={{ height: bottomHeight, minHeight: MIN_BOTTOM, maxHeight: MAX_BOTTOM }} className="bg-anvil-panel flex flex-col">
-        <BottomDataStrip />
       </div>
     </div>
   );
