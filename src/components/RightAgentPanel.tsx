@@ -10,7 +10,7 @@ export default function RightAgentPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
 
-  const { messages, currentProject, setCurrentProject, addMessage } = useProjectStore();
+  const { messages, currentProject, setCurrentProject, addMessage, refreshProjectState } = useProjectStore();
 
   useEffect(() => {
     sendingRef.current = sending;
@@ -41,6 +41,7 @@ export default function RightAgentPanel() {
       }
     }
     loadHistory();
+    if (currentProject?.id) refreshProjectState(currentProject.id);
   }, [currentProject?.id]);
 
   const handleSend = async () => {
@@ -61,6 +62,10 @@ export default function RightAgentPanel() {
       if (project.name !== data.project_name) {
         setCurrentProject({ ...project, name: data.project_name });
       }
+      // The agent may have called state tools during this turn (added a
+      // constraint, checked off a progress item, etc.) — refresh after the
+      // rename above so this isn't clobbered by setCurrentProject's clear.
+      refreshProjectState(project.id);
     } catch (err: any) {
       addMessage('assistant', `Error: ${err?.message || 'Failed to reach agent.'}`);
     } finally {
