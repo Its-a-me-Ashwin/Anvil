@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Mic, Bot, CheckCircle2, Loader2 } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore';
-import { chatProject, createProject, getSession } from '../services/agentService';
+import { chatProject, getSession } from '../services/agentService';
 
 export default function RightAgentPanel() {
   const [tab, setTab] = useState<'chat' | 'activity' | 'memory'>('chat');
@@ -45,18 +45,17 @@ export default function RightAgentPanel() {
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || sending) return;
+    // Projects are created explicitly via the "New Project" button in
+    // TopBar, not implicitly on first message — if there's none selected,
+    // there's nothing to send to.
+    if (!text || sending || !currentProject) return;
 
     addMessage('user', text);
     setInput('');
     setSending(true);
 
     try {
-      let project = currentProject;
-      if (!project) {
-        project = await createProject();
-        setCurrentProject(project);
-      }
+      const project = currentProject;
       const data = await chatProject(project.id, text);
       addMessage('assistant', data.response);
       if (project.name !== data.project_name) {
@@ -137,16 +136,16 @@ export default function RightAgentPanel() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Anvil anything or give an instruction..."
+            placeholder={currentProject ? 'Ask Anvil anything or give an instruction...' : 'Click "New Project" above to start...'}
             className="flex-1 bg-transparent border-none outline-none text-xs text-anvil-text placeholder-anvil-muted"
-            disabled={sending}
+            disabled={sending || !currentProject}
           />
           <button className="text-anvil-muted hover:text-white">
             <Mic className="w-4 h-4" />
           </button>
           <button
             onClick={handleSend}
-            disabled={sending || !input.trim()}
+            disabled={sending || !input.trim() || !currentProject}
             className="w-7 h-7 rounded bg-anvil-accent hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-white"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

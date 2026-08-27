@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Cloud, Wifi, Settings, Printer, Save, Trash2, X, Search, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { loadPrinterConfig, savePrinterConfig, deletePrinterConfig, registerPrinterWithBridge, discoverPrinters, type PrinterConfig } from '../services/slicerService';
-import { getProject } from '../services/agentService';
+import { createProject, getProject } from '../services/agentService';
 import { useProjectStore } from '../store/projectStore';
 
 const PRINTER_MODELS: PrinterConfig['model'][] = ['p1p', 'p1s', 'x1c', 'x1e', 'a1', 'a1mini', 'h2d', 'h2s', 'h2c'];
@@ -123,9 +123,14 @@ export default function TopBar() {
     setProjectOpen(false);
   };
 
-  const startNewProject = () => {
+  const startNewProject = async () => {
     clearCurrentProject();
     setProjectOpen(false);
+    // Create the backend project right here, explicitly, instead of letting
+    // the first chat message create one implicitly.
+    const project = await createProject();
+    setCurrentProject(project, []);
+    loadProjects();
   };
 
   return (
