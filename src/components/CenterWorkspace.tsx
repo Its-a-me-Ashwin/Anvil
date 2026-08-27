@@ -100,7 +100,7 @@ export default function CenterWorkspace() {
       <input type="file" ref={fileInputRef} onChange={handleFileInput} className="hidden" multiple />
 
       {/* Tab bar */}
-      <div className="h-10 flex items-center border-b border-anvil-border bg-anvil-panel px-1 overflow-x-auto">
+      <div className="h-10 flex items-center border-b border-anvil-border bg-anvil-panel px-1 overflow-visible">
         {tabs.map((tab) => {
           const Icon = icons[tab.type] || MousePointer2;
           const isActive = tab.id === activeTabId;
@@ -128,7 +128,7 @@ export default function CenterWorkspace() {
             </div>
           );
         })}
-        <div className="relative" ref={menuRef}>
+        <div className="relative z-50" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="h-full px-2 text-anvil-muted hover:text-white"
@@ -150,12 +150,6 @@ export default function CenterWorkspace() {
                 className="w-full text-left px-3 py-2 text-xs text-anvil-text hover:bg-anvil-panelHover flex items-center gap-2"
               >
                 <Code className="w-3.5 h-3.5 text-blue-400" /> VS Code
-              </button>
-              <button
-                onClick={() => { newSearchTab(); setMenuOpen(false); }}
-                className="w-full text-left px-3 py-2 text-xs text-anvil-text hover:bg-anvil-panelHover flex items-center gap-2"
-              >
-                <Search className="w-3.5 h-3.5 text-orange-400" /> Brave Search
               </button>
               <button
                 onClick={() => { newYouTubeTab(); setMenuOpen(false); }}
