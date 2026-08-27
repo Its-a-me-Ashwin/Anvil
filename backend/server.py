@@ -272,10 +272,13 @@ async def create_project(req: ProjectCreateRequest) -> dict:
     now = _now()
     doc_ref = col.document()
 
+    # project_id in session state lets the agent's instruction tell it the
+    # real Firestore project id, instead of it inventing one — see
+    # agent._build_instruction.
     session = await r.session_service.create_session(
         app_name=APP_NAME,
         user_id=user_id,
-        state={},
+        state={"project_id": doc_ref.id},
     )
 
     await doc_ref.set({
@@ -341,7 +344,7 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
         session = await r.session_service.create_session(
             app_name=APP_NAME,
             user_id=user_id,
-            state={},
+            state={"project_id": project_id},
         )
         session_id = session.id
         await doc_ref.update({"session_id": session_id})
@@ -356,6 +359,13 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
     ):
         if not event.content:
             continue
+        for part in event.content.parts:
+            if getattr(part, "function_call", None):
+                fc = part.function_call
+                logger.info("tool_call: %s(%s)", fc.name, dict(fc.args or {}))
+            if getattr(part, "function_response", None):
+                fr = part.function_response
+                logger.info("tool_result: %s -> %s", fr.name, fr.response)
         if event.is_final_response():
             for part in event.content.parts:
                 if part.text:
