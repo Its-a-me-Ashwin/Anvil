@@ -28,8 +28,11 @@ export const useProjectStore = create<ProjectState>((set) => ({
   currentProject: null,
   messages: [],
 
-  setCurrentProject: (project, messages = []) =>
-    set({ currentProject: project, messages }),
+  setCurrentProject: (project, messages) =>
+    set((state) => ({
+      currentProject: project,
+      messages: messages !== undefined ? messages : state.messages,
+    })),
 
   addMessage: (role, text) =>
     set((state) => ({

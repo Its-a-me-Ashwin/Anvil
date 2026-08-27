@@ -22,6 +22,7 @@ from google.adk.agents import Agent
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.google_search_tool import google_search
 from google.adk.tools.mcp_tool import MCPToolset
+from google.genai import types as genai_types
 
 # Make the adapter modules resolvable whether this file is imported as
 # `backend.agent` from the project root or `agent` from within backend/.
@@ -110,7 +111,9 @@ def build_tools() -> list:
 
 
 def build_agent(
-    model: str = "gemini-2.6-flash",
+    # TEMPORARY for cheap local testing. The hackathon requires Gemini 3.5+
+    # (gemini-3.5-flash-lite confirmed working) — swap back before submission.
+    model: str = "gemini-flash-lite-latest",
     tools: list | None = None,
 ) -> Agent:
     """Build the Anvil engineering partner agent."""
@@ -118,12 +121,18 @@ def build_agent(
         tools = build_tools()
 
     # Gemini's built-in Google Search tool. Works with Gemini 2.0+ models.
+    # Mixing a built-in tool with our FunctionTools requires explicitly
+    # opting in via tool_config, or Gemini rejects the request with
+    # "Please enable tool_config.include_server_side_tool_invocations".
     tools.append(google_search)
 
     return Agent(
         model=model,
         name="anvil",
         tools=tools,
+        generate_content_config=genai_types.GenerateContentConfig(
+            tool_config=genai_types.ToolConfig(include_server_side_tool_invocations=True),
+        ),
         instruction=(
             "You are Anvil, a collaborative engineering partner. You help the user "
             "design, simulate, and build hardware projects. You can read and edit "

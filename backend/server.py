@@ -359,7 +359,7 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
                     "Return only the name."
                 )
                 suggestion = await client.aio.models.generate_content(
-                    model="gemini-2.6-flash",
+                    model="gemini-flash-lite-latest",
                     contents=[prompt],
                 )
                 suggested = (suggestion.text or "").strip().strip('"').strip("'")

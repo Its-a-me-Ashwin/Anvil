@@ -116,9 +116,9 @@ export default function TopBar() {
     if (!project) return;
     try {
       const full = await getProject(project.id);
-      setCurrentProject(full);
+      setCurrentProject(full, []); // switching projects — clear until history loads, don't keep the old one's messages
     } catch {
-      setCurrentProject(project);
+      setCurrentProject(project, []);
     }
     setProjectOpen(false);
   };

@@ -8,8 +8,13 @@ export default function RightAgentPanel() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
 
   const { messages, currentProject, setCurrentProject, addMessage } = useProjectStore();
+
+  useEffect(() => {
+    sendingRef.current = sending;
+  }, [sending]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -22,6 +27,11 @@ export default function RightAgentPanel() {
       if (!currentProject?.session_id) return;
       try {
         const data = await getSession(currentProject.session_id);
+        // A send can already be in flight for this same project (e.g. we
+        // just created it and are waiting on the first chat response) —
+        // its optimistic messages are newer than whatever this fetch sees,
+        // so don't clobber them with the not-yet-updated server history.
+        if (sendingRef.current) return;
         const history = (data.messages || [])
           .filter((m) => m.role === 'user' || m.role === 'assistant')
           .map((m) => ({ role: m.role, text: m.text }));
