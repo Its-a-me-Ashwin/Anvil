@@ -16,8 +16,9 @@ dist-ssr
 bambu.log
 
 # Python
-__pycache__
-*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
 backend/.env
 backend/sandbox_project/cad_output/assemblies/
 
