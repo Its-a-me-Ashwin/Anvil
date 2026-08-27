@@ -191,13 +191,32 @@ async def get_session(session_id: str, user_id: str = "default") -> dict:
     )
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    # session.events is always empty: the installed google-adk
+    # FirestoreSessionService.get_session() queries events with
+    # order_by("timestamp"), but events are stored with timestamp nested
+    # under event_data.timestamp, not at the top level — so the query
+    # matches zero documents every time. Confirmed by inspecting the raw
+    # Firestore documents directly. Query the events subcollection
+    # ourselves instead of relying on that broken helper, and sort in
+    # Python rather than depending on a Firestore order_by.
+    events_ref = (
+        _firestore_client()
+        .collection("sessions").document(APP_NAME)
+        .collection("users").document(user_id)
+        .collection("sessions").document(session_id)
+        .collection("events")
+    )
+    event_docs = [doc.to_dict().get("event_data", {}) async for doc in events_ref.stream()]
+    raw_events = sorted(event_docs, key=lambda e: e.get("timestamp", 0))
+
     messages: list[dict] = []
-    for event in session.events:
-        if not event.content or not event.content.parts:
-            continue
-        texts = [p.text for p in event.content.parts if p.text]
+    for event_data in raw_events:
+        content = event_data.get("content") or {}
+        parts = content.get("parts") or []
+        texts = [p.get("text") for p in parts if p.get("text")]
         if texts:
-            messages.append({"role": event.content.role or "unknown", "text": " ".join(texts)})
+            messages.append({"role": content.get("role") or "unknown", "text": " ".join(texts)})
     return {"session_id": session.id, "messages": messages}
 
 
