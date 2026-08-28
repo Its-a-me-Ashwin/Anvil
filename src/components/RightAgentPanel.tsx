@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Mic, Bot, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
+import { Send, Mic, MicOff, Bot, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore';
 import { chatProject, getSession, addSource } from '../services/agentService';
 import { useActivityStore } from '../store/activityStore';
@@ -9,8 +9,11 @@ export default function RightAgentPanel() {
   const [tab, setTab] = useState<'chat' | 'activity' | 'memory'>('chat');
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [listening, setListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
+  const recognitionRef = useRef<any>(null);
+  const baseTextRef = useRef('');
 
   const { messages, currentProject, setCurrentProject, addMessage, refreshProjectState, loadSources } = useProjectStore();
   const { activities, clearActivities } = useActivityStore();
@@ -96,6 +99,61 @@ export default function RightAgentPanel() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleSend();
   };
+
+  const toggleMic = () => {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      addMessage('assistant', 'Speech recognition is not supported in this browser. Try Chrome or Edge.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    baseTextRef.current = input ? input + ' ' : '';
+
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      let final = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          final += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      if (final) {
+        baseTextRef.current += final + ' ';
+      }
+      setInput(baseTextRef.current + interim);
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  };
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
 
   return (
     <div className="h-full flex flex-col">
@@ -206,8 +264,14 @@ export default function RightAgentPanel() {
             className="flex-1 bg-transparent border-none outline-none text-xs text-anvil-text placeholder-anvil-muted"
             disabled={sending || !currentProject}
           />
-          <button className="text-anvil-muted hover:text-white">
-            <Mic className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={toggleMic}
+            disabled={!currentProject}
+            title={listening ? 'Stop recording' : 'Speak to type'}
+            className={`disabled:opacity-50 ${listening ? 'text-red-500 animate-pulse' : 'text-anvil-muted hover:text-white'}`}
+          >
+            {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
           <button
             onClick={handleSend}
