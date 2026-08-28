@@ -42,13 +42,15 @@ ADAPTERS: list[AdapterEntry] = [
         name="cad",
         description=(
             "Parametric multi-part CAD assemblies via build123d: create primitive "
-            "shapes, position them, combine with boolean ops, fillet, inspect, "
-            "and export (gltf/step/stl)."
+            "shapes (including hollow tubes, cones, spheres), combine them with "
+            "boolean ops (union/cut/intersect), drill holes, fillet or chamfer "
+            "edges, position them, inspect, and export (gltf/step/stl)."
         ),
         backing="custom",
         scope=[
             "add_box", "add_cylinder", "add_tube", "add_sphere", "add_cone",
-            "position_part", "remove_part", "boolean_op", "fillet_part",
+            "position_part", "remove_part", "boolean_op", "drill_hole",
+            "fillet_part", "chamfer_part",
             "list_parts", "get_part_info", "export_assembly",
         ],
         status="testing",

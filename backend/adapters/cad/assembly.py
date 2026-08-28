@@ -114,6 +114,20 @@ class Assembly:
         self.parts[name] = filleted
         self._save()
 
+    def chamfer_part(self, name: str, length: float) -> None:
+        if name not in self.parts:
+            raise KeyError(f"No part named {name!r} in project {self.project!r}")
+        chamfered = {
+            "name": name,
+            "shape": "chamfer",
+            "params": {"part": self.parts[name], "length": length},
+            "position": [0, 0, 0],
+            "rotation": [0, 0, 0],
+        }
+        build_shape(chamfered)  # validate before mutating state
+        self.parts[name] = chamfered
+        self._save()
+
     def list_parts(self) -> list[dict]:
         return [
             {

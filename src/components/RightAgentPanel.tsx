@@ -13,6 +13,11 @@ import ToolCallCard from './ToolCallCard';
 const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
 const CIRCUIT_WRITE_TOOLS = new Set(['create_wiring_diagram', 'update_wiring_diagram']);
 const ANIMATION_TOOL = 'generate_animation';
+const CAD_WRITE_TOOLS = new Set([
+  'add_box', 'add_cylinder', 'add_tube', 'add_sphere', 'add_cone',
+  'position_part', 'remove_part', 'boolean_op', 'drill_hole',
+  'fillet_part', 'chamfer_part',
+]);
 
 // Whenever this turn's tool calls wrote or edited a file, pull the real VS
 // Code Server tab to the front and deep-link it straight to that file (or
@@ -102,6 +107,23 @@ function openAnimationViewer(toolCalls: ToolCall[] | undefined, projectId: strin
   }
 }
 
+// Whenever this turn's tool calls edited the project's CAD assembly, pull
+// the Bambu Slicer tab (which doubles as the live STL viewer — see
+// SlicerWorkspace's own CAD-polling effect) to the front, instead of making
+// the user open it themselves from the "+" menu.
+function openCadViewer(toolCalls: ToolCall[] | undefined) {
+  const wasWritten = (toolCalls || []).some((c) => CAD_WRITE_TOOLS.has(c.name));
+  if (!wasWritten) return;
+
+  const { tabs, addTab, setActiveTab } = useWorkspaceStore.getState();
+  const existing = tabs.find((t) => t.type === 'slicer');
+  if (existing) {
+    setActiveTab(existing.id);
+  } else {
+    addTab({ title: 'Bambu Slicer', type: 'slicer' });
+  }
+}
+
 export default function RightAgentPanel() {
   const [tab, setTab] = useState<'chat' | 'activity' | 'memory'>('chat');
   const [input, setInput] = useState('');
@@ -165,6 +187,7 @@ export default function RightAgentPanel() {
       openTouchedFiles(data.tool_calls);
       openCircuitViewer(data.tool_calls, project.id);
       openAnimationViewer(data.tool_calls, project.id);
+      openCadViewer(data.tool_calls);
       if (project.name !== data.project_name) {
         setCurrentProject({ ...project, name: data.project_name });
       }

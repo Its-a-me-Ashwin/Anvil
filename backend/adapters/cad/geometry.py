@@ -8,18 +8,18 @@ the CAD-as-code approach described in arch-spec.md.
 A part definition looks like:
     {
         "name": "housing",
-        "shape": "tube",              # box | cylinder | tube | sphere | cone | boolean | fillet
+        "shape": "tube",              # box | cylinder | tube | sphere | cone | boolean | fillet | chamfer
         "params": {...shape-specific...},
         "position": [x, y, z],
         "rotation": [rx, ry, rz],     # degrees, Euler
     }
 
-"boolean" and "fillet" are composite shapes whose params embed other part
-definitions (recursively), so combining or cleaning up parts is expressed
-the same way as any other part rather than as a special case.
+"boolean", "fillet", and "chamfer" are composite shapes whose params embed
+other part definitions (recursively), so combining or cleaning up parts is
+expressed the same way as any other part rather than as a special case.
 """
 
-from build123d import Box, Cone, Cylinder, Location, Sphere, fillet
+from build123d import Box, Cone, Cylinder, Location, Sphere, chamfer, fillet
 
 _BOOLEAN_OPS = {
     "union": lambda a, b: a + b,
@@ -27,7 +27,7 @@ _BOOLEAN_OPS = {
     "intersect": lambda a, b: a & b,
 }
 
-SHAPE_TYPES = ("box", "cylinder", "tube", "sphere", "cone", "boolean", "fillet")
+SHAPE_TYPES = ("box", "cylinder", "tube", "sphere", "cone", "boolean", "fillet", "chamfer")
 
 
 def build_shape(part: dict):
@@ -66,6 +66,9 @@ def build_shape(part: dict):
     elif shape_type == "fillet":
         base = build_shape(params["part"])
         shape = fillet(base.edges(), radius=params["radius"])
+    elif shape_type == "chamfer":
+        base = build_shape(params["part"])
+        shape = chamfer(base.edges(), length=params["length"])
     else:
         raise ValueError(f"Unknown shape type {shape_type!r}, choose one of {SHAPE_TYPES}")
 

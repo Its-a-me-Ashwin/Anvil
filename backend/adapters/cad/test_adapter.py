@@ -64,6 +64,25 @@ def main() -> None:
     cad.fillet_part(PROJECT, "bracket", radius=0.2)
     print("OK")
 
+    print("\n-- chamfer_part(test_block) — fresh part, avoids interacting with bracket's existing fillet --")
+    cad.add_box(PROJECT, "test_block", length=20, width=20, height=20, position=(100, 0, 0))
+    before = cad.get_part_info(PROJECT, "test_block")["volume_mm3"]
+    cad.chamfer_part(PROJECT, "test_block", length=2.0)
+    after = cad.get_part_info(PROJECT, "test_block")["volume_mm3"]
+    assert after < before, "chamfering should remove material"
+    print(f"OK — volume {before:.1f} -> {after:.1f}")
+
+    print("\n-- drill_hole(test_block, axis='x') — sideways hole --")
+    before = after
+    cad.drill_hole(PROJECT, "test_block", radius=2, depth=25, position=(100, 0, 0), axis="x")
+    parts = {p["name"] for p in cad.list_parts(PROJECT)}
+    assert "test_block" in parts, "drill_hole should keep the part's original name"
+    assert not any(n.startswith("__hole_") for n in parts), "drill_hole should not leak its scratch cylinder"
+    after = cad.get_part_info(PROJECT, "test_block")["volume_mm3"]
+    assert after < before, "drilling should remove material"
+    print(f"OK — volume {before:.1f} -> {after:.1f}")
+    cad.remove_part(PROJECT, "test_block")
+
     print("\n-- position_part(shaft) --")
     cad.position_part(PROJECT, "shaft", position=(0, 0, -15))
     print("OK")
@@ -96,6 +115,13 @@ def main() -> None:
     print("\n-- boundary check: fillet radius too large for the geometry should raise --")
     try:
         cad.fillet_part(PROJECT, "bracket", radius=5.0)
+        raise AssertionError("expected ValueError")
+    except ValueError as e:
+        print(f"OK — rejected: {e}")
+
+    print("\n-- boundary check: drill_hole with an invalid axis should raise --")
+    try:
+        cad.drill_hole(PROJECT, "housing", radius=1, depth=5, axis="w")
         raise AssertionError("expected ValueError")
     except ValueError as e:
         print(f"OK — rejected: {e}")
