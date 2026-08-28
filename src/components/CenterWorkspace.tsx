@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Plus, X, Globe, FileCode, FileText, Image as ImageIcon, Video, Play, MousePointer2, Upload, Search, Code, Box, CircuitBoard } from 'lucide-react';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { useProjectStore } from '../store/projectStore';
+import { addSource } from '../services/agentService';
 import { detectTypeFromName } from '../lib/fileTypes';
 import WebViewer from './WebViewer';
 import CodeEditor from './CodeEditor';
@@ -31,10 +33,21 @@ const icons: Record<string, React.ElementType> = {
 
 export default function CenterWorkspace() {
   const { tabs, activeTabId, addTab, closeTab, setActiveTab, updateTab } = useWorkspaceStore();
+  const { currentProject, loadSources } = useProjectStore();
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  const trackSource = async (type: string, title: string, url?: string) => {
+    if (!currentProject) return;
+    try {
+      await addSource(currentProject.id, { type, title, url, added_at: new Date().toISOString() });
+      await loadSources(currentProject.id);
+    } catch {
+      // Ignore source tracking errors so the workspace action still works.
+    }
+  };
 
   const onDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -59,27 +72,48 @@ export default function CenterWorkspace() {
     const type = detectTypeFromName(file.name);
     if (type === 'slicer') {
       addTab({ title: file.name, type: 'slicer', file });
+      await trackSource('slicer', file.name);
     } else if (type === 'code' || type === 'unknown') {
       const text = await file.text();
       addTab({ title: file.name, type: 'code', content: text, fileName: file.name, file });
+      await trackSource('code', file.name);
     } else if (type === 'pdf') {
       addTab({ title: file.name, type: 'pdf', file });
+      await trackSource('pdf', file.name);
     } else if (type === 'image') {
       addTab({ title: file.name, type: 'image', file });
+      await trackSource('image', file.name);
     } else if (type === 'video') {
       addTab({ title: file.name, type: 'video', file });
+      await trackSource('video', file.name);
     }
   };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const newWebTab = () => addTab({ title: 'Browser', type: 'web', url: 'https://example.com' });
-  const newSearchTab = () => addTab({ title: 'Brave Search', type: 'search' });
-  const newCodeServerTab = () => addTab({ title: 'VS Code', type: 'codeserver', url: 'http://localhost:8080' });
-  const newYouTubeTab = () => addTab({ title: 'YouTube', type: 'youtube', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ' });
-  const newSlicerTab = () => addTab({ title: 'Bambu Slicer', type: 'slicer' });
-  const newWiringTab = () => addTab({ title: 'Wiring Diagram', type: 'wiring' });
+  const newWebTab = () => {
+    addTab({ title: 'Browser', type: 'web', url: 'https://example.com' });
+    trackSource('web', 'Browser', 'https://example.com');
+  };
+
+  const newCodeServerTab = () => {
+    addTab({ title: 'VS Code', type: 'codeserver', url: 'http://localhost:8080' });
+    trackSource('code', 'VS Code', 'http://localhost:8080');
+  };
+  const newYouTubeTab = () => {
+    const url = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
+    addTab({ title: 'YouTube', type: 'youtube', url });
+    trackSource('youtube', 'YouTube', url);
+  };
+  const newSlicerTab = () => {
+    addTab({ title: 'Bambu Slicer', type: 'slicer' });
+    trackSource('slicer', 'Bambu Slicer');
+  };
+  const newWiringTab = () => {
+    addTab({ title: 'Wiring Diagram', type: 'wiring' });
+    trackSource('wiring', 'Wiring Diagram');
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

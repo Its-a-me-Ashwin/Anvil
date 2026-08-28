@@ -1,11 +1,19 @@
 const API_BASE = import.meta.env.VITE_ANVIL_API_URL || 'http://localhost:8000';
 
+export interface SourceItem {
+  type: string;
+  title: string;
+  url?: string | null;
+  added_at?: string | null;
+}
+
 export interface Project {
   id: string;
   name: string;
   created_at?: string;
   updated_at?: string;
   session_id?: string;
+  sources?: SourceItem[];
 }
 
 export interface ProjectListResponse {
@@ -132,4 +140,22 @@ export async function getSession(sessionId: string): Promise<SessionResponse> {
 export async function getProjectState(id: string): Promise<ProjectState> {
   const res = await fetch(`${API_BASE}/projects/${id}/state`);
   return handleJson<ProjectState>(res);
+}
+
+export interface SourcesResponse {
+  sources: SourceItem[];
+}
+
+export async function getSources(projectId: string): Promise<SourcesResponse> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/sources`);
+  return handleJson<SourcesResponse>(res);
+}
+
+export async function addSource(projectId: string, item: SourceItem): Promise<SourceItem> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/sources`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
+  });
+  return handleJson<SourceItem>(res);
 }

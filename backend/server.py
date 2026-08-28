@@ -95,6 +95,13 @@ class ProjectChatResponse(BaseModel):
     tool_calls: list[ToolCallInfo] = []
 
 
+class SourceItem(BaseModel):
+    type: str  # 'web', 'youtube', 'pdf', 'image', 'video', 'code', 'slicer', 'wiring'
+    title: str
+    url: str | None = None
+    added_at: str | None = None
+
+
 # -----------------------------------------------------------------------------
 # Lifespan
 # -----------------------------------------------------------------------------
@@ -362,6 +369,7 @@ async def create_project(req: ProjectCreateRequest) -> dict:
         "created_at": now,
         "updated_at": now,
         "session_id": session.id,
+        "sources": [],
     })
 
     return {
@@ -384,7 +392,34 @@ async def get_project(project_id: str) -> dict:
         "created_at": data.get("created_at"),
         "updated_at": data.get("updated_at"),
         "session_id": data.get("session_id"),
+        "sources": data.get("sources", []),
     }
+
+
+@app.get("/projects/{project_id}/sources")
+async def get_project_sources(project_id: str) -> dict:
+    doc = await _projects_collection().document(project_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project = doc.to_dict()
+    return {"sources": project.get("sources", [])}
+
+
+@app.post("/projects/{project_id}/sources")
+async def add_project_source(project_id: str, item: SourceItem) -> dict:
+    doc_ref = _projects_collection().document(project_id)
+    doc = await doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project = doc.to_dict()
+    sources = project.get("sources") or []
+    source = item.model_dump()
+    sources.append(source)
+    await doc_ref.update({
+        "sources": sources,
+        "updated_at": _now(),
+    })
+    return source
 
 
 @app.get("/projects/{project_id}/state")
