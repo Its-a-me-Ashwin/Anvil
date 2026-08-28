@@ -34,6 +34,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import agent as anvil_agent
+from adapters.cad.assembly import Assembly
 from adapters.state.adapter import read_project_summary
 from workers import vision as vision_worker
 
@@ -435,6 +436,30 @@ async def get_project_state(project_id: str) -> dict:
     # with the agent's FunctionTools) — run it off the event loop so a slow
     # Firestore round-trip doesn't block other requests.
     return await asyncio.to_thread(read_project_summary, project_id)
+
+
+@app.get("/projects/{project_id}/cad/meta")
+async def get_cad_meta(project_id: str) -> dict:
+    """Cheap poll target for the STL viewer's hot-reload: just the assembly
+    state file's mtime, not a full geometry export. The viewer re-fetches
+    the .stl below only when this mtime changes."""
+    def _read() -> dict:
+        asm = Assembly(project_id)
+        return {"part_count": len(asm.parts), "mtime": asm.json_mtime()}
+
+    return await asyncio.to_thread(_read)
+
+
+@app.get("/projects/{project_id}/cad/model.stl", response_model=None)
+async def get_cad_model(project_id: str) -> FileResponse:
+    def _export() -> str:
+        asm = Assembly(project_id)
+        if not asm.parts:
+            raise HTTPException(status_code=404, detail="No CAD parts in this project yet")
+        return asm.export("stl")["path"]
+
+    path = await asyncio.to_thread(_export)
+    return FileResponse(path, media_type="application/octet-stream", filename=f"{project_id}.stl")
 
 
 @app.post("/projects/{project_id}/chat", response_model=ProjectChatResponse)

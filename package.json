@@ -15,6 +15,7 @@
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/three": "^0.169.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.5.4",
     "concurrently": "^9.1.2",
@@ -33,6 +34,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-resizable-panels": "^4.12.3",
+    "three": "^0.169.0",
     "zustand": "^5.0.15"
   }
 }

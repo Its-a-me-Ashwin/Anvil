@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
 import { Box, Settings, Send, Layers, Triangle, GripHorizontal, Upload, CheckCircle2, AlertCircle, Activity } from 'lucide-react';
 import { sliceModel, sendToPrinter, loadPrinterConfig, checkBridgeHealth, type SlicerParams, type PrinterConfig } from '../services/slicerService';
+import { getCadMeta, fetchCadModel } from '../services/cadService';
+import { useProjectStore } from '../store/projectStore';
+import StlViewer from './StlViewer';
+
+const CAD_POLL_MS = 2000;
 
 interface SlicerWorkspaceProps {
   file?: File;
 }
 
 export default function SlicerWorkspace({ file: initialFile }: SlicerWorkspaceProps) {
+  const { currentProject } = useProjectStore();
   const [file, setFile] = useState<File | null>(initialFile || null);
+  const [previewData, setPreviewData] = useState<ArrayBuffer | null>(null);
+  const [cadAvailable, setCadAvailable] = useState(false);
   const [params, setParams] = useState<SlicerParams>({
     bedAdhesion: 'Cool Plate',
     infill: 20,
@@ -20,6 +28,7 @@ export default function SlicerWorkspace({ file: initialFile }: SlicerWorkspacePr
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [printer, setPrinter] = useState<PrinterConfig | null>(() => loadPrinterConfig());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastCadMtimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     const refresh = () => setPrinter(loadPrinterConfig());
@@ -37,6 +46,61 @@ export default function SlicerWorkspace({ file: initialFile }: SlicerWorkspacePr
     if (initialFile) setFile(initialFile);
   }, [initialFile]);
 
+  // A manually chosen file always wins over the live CAD model — read its
+  // bytes once so the viewer can show it (no hot-reload for these, since
+  // there's nothing on the backend tracking edits to them).
+  useEffect(() => {
+    if (!file) return;
+    let cancelled = false;
+    file.arrayBuffer().then((buf) => {
+      if (!cancelled) setPreviewData(buf);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+
+  // With no manually chosen file, follow the project's live CAD assembly:
+  // poll the cheap mtime endpoint, and only re-fetch/re-render the mesh when
+  // it actually changed (i.e. the agent edited the design).
+  useEffect(() => {
+    if (file || !currentProject) {
+      setCadAvailable(false);
+      return;
+    }
+
+    let cancelled = false;
+    lastCadMtimeRef.current = null;
+
+    const poll = async () => {
+      try {
+        const meta = await getCadMeta(currentProject.id);
+        if (cancelled) return;
+        if (!meta.part_count) {
+          setCadAvailable(false);
+          setPreviewData(null);
+          lastCadMtimeRef.current = null;
+          return;
+        }
+        setCadAvailable(true);
+        if (meta.mtime !== lastCadMtimeRef.current) {
+          lastCadMtimeRef.current = meta.mtime;
+          const buf = await fetchCadModel(currentProject.id);
+          if (!cancelled) setPreviewData(buf);
+        }
+      } catch {
+        // Bridge/backend may be briefly unreachable — keep the last good preview.
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, CAD_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [file, currentProject]);
+
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (selected) {
@@ -46,12 +110,21 @@ export default function SlicerWorkspace({ file: initialFile }: SlicerWorkspacePr
     }
   };
 
+  const getModelFile = (): File | null => {
+    if (file) return file;
+    if (previewData && cadAvailable) {
+      return new File([previewData], `${currentProject?.name || currentProject?.id || 'model'}.stl`, { type: 'model/stl' });
+    }
+    return null;
+  };
+
   const handleSlice = async () => {
-    if (!file || !printer) return;
+    const modelFile = getModelFile();
+    if (!modelFile || !printer) return;
     setSlicing(true);
     setStatus(null);
     try {
-      const result = await sliceModel(file, params, printer.model);
+      const result = await sliceModel(modelFile, params, printer.model);
       setSlicedPath(result.outputPath || null);
       setStatus({ type: 'success', message: `Sliced to ${result.outputName || result.outputPath}` });
     } catch (err: any) {
@@ -90,6 +163,27 @@ export default function SlicerWorkspace({ file: initialFile }: SlicerWorkspacePr
 
       <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-2xl mx-auto space-y-4">
+          {/* 3D preview — hot-reloads from the project's live CAD assembly
+              when no file has been manually chosen below. */}
+          <div className="h-72 rounded-lg border border-anvil-border overflow-hidden relative">
+            <StlViewer
+              data={previewData}
+              emptyLabel={
+                file
+                  ? 'Reading model…'
+                  : cadAvailable
+                    ? 'Waiting for a model…'
+                    : 'No CAD model yet — ask the agent to design one, or drop a file below'
+              }
+            />
+            {!file && cadAvailable && (
+              <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-1 rounded bg-black/50 text-[10px] text-anvil-success">
+                <span className="w-1.5 h-1.5 rounded-full bg-anvil-success animate-pulse" />
+                Live from CAD
+              </div>
+            )}
+          </div>
+
           {/* Model selection */}
           <div
             onClick={() => fileInputRef.current?.click()}
@@ -101,6 +195,11 @@ export default function SlicerWorkspace({ file: initialFile }: SlicerWorkspacePr
               <>
                 <p className="text-sm font-medium text-white">{file.name}</p>
                 <p className="text-xs text-anvil-muted">Click to change model</p>
+              </>
+            ) : cadAvailable ? (
+              <>
+                <p className="text-sm font-medium text-white">Using live CAD model from this project</p>
+                <p className="text-xs text-anvil-muted">Click to slice a different .stl or .3mf instead</p>
               </>
             ) : (
               <>
@@ -164,7 +263,7 @@ export default function SlicerWorkspace({ file: initialFile }: SlicerWorkspacePr
           <div className="flex gap-3">
             <button
               onClick={handleSlice}
-              disabled={!file || !printer || slicing || bridgeOk !== true}
+              disabled={!getModelFile() || !printer || slicing || bridgeOk !== true}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded bg-anvil-accent hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-medium transition"
             >
               <Box className="w-4 h-4" />

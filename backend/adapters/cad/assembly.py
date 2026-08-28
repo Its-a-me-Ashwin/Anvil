@@ -36,6 +36,12 @@ class Assembly:
     def _save(self) -> None:
         self._path.write_text(json.dumps(self.parts, indent=2))
 
+    def json_mtime(self) -> float | None:
+        """Last-modified time of this assembly's state file, or None if it has
+        never been saved. Used to detect edits for viewer hot-reload without
+        re-running the (comparatively expensive) geometry export."""
+        return self._path.stat().st_mtime if self._path.exists() else None
+
     def add_part(
         self,
         name: str,
