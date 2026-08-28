@@ -1,4 +1,5 @@
 import http from 'node:http';
+import net from 'node:net';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -74,6 +75,85 @@ function corsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+function bambuCameraUrl(printer) {
+  return `rtsps://bblp:${encodeURIComponent(printer.access_code)}@${printer.ip_address}:322/streaming/live/1`;
+}
+
+async function getCameraPrinter() {
+  const config = await readPrintersConfig();
+  const printers = Object.values(config).filter((printer) => printer?.ip_address && printer?.access_code);
+  for (const printer of printers) {
+    if (await canReachPrinter(printer.ip_address)) return printer;
+  }
+  return null;
+}
+
+function canReachPrinter(host) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host, port: 322 });
+    const finish = (reachable) => {
+      socket.destroy();
+      resolve(reachable);
+    };
+    socket.setTimeout(1200);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
+}
+
+async function streamCamera(req, res) {
+  const printer = await getCameraPrinter();
+  if (!printer) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: 'No configured printer camera.' }));
+    return;
+  }
+
+  const ffmpeg = spawn('ffmpeg', [
+    '-loglevel', 'error',
+    '-rw_timeout', '10000000',
+    '-rtsp_transport', 'tcp',
+    '-tls_verify', '0',
+    '-i', bambuCameraUrl(printer),
+    '-an',
+    '-c:v', 'copy',
+    '-f', 'mp4',
+    '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+    'pipe:1',
+  ], { windowsHide: true });
+
+  let started = false;
+  const startupTimeout = setTimeout(() => {
+    if (started || ffmpeg.killed) return;
+    ffmpeg.kill();
+  }, 12000);
+  ffmpeg.stderr.on('data', (data) => {
+    if (!started && data.toString().trim()) {
+      console.error(`Camera relay: ${data.toString().trim()}`);
+    }
+  });
+  ffmpeg.stdout.once('data', (data) => {
+    started = true;
+    clearTimeout(startupTimeout);
+    res.writeHead(200, { 'Content-Type': 'video/mp4', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+    res.write(data);
+    ffmpeg.stdout.pipe(res);
+  });
+  ffmpeg.on('close', () => {
+    clearTimeout(startupTimeout);
+    if (!res.headersSent) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Unable to connect to the printer camera.' }));
+    } else if (!res.writableEnded) {
+      res.end();
+    }
+  });
+  req.on('close', () => {
+    if (!ffmpeg.killed) ffmpeg.kill();
+  });
 }
 
 function modelToProfileFamily(model) {
@@ -290,6 +370,17 @@ const server = http.createServer(async (req, res) => {
       const studioExists = await fileExists(BAMBU_STUDIO);
       const cliExists = await fileExists(BAMBU_CLI);
       send(200, { ok: true, bambuStudio: studioExists, bambuCli: cliExists, workshopDir: WORKSHOP_DIR });
+      return;
+    }
+
+    if (req.url === '/camera' && req.method === 'GET') {
+      if (!await getCameraPrinter()) return send(404, { success: false, error: 'No configured printer camera.' });
+      send(200, { success: true, url: `http://localhost:${PORT}/camera/stream` });
+      return;
+    }
+
+    if (req.url === '/camera/stream' && req.method === 'GET') {
+      await streamCamera(req, res);
       return;
     }
 

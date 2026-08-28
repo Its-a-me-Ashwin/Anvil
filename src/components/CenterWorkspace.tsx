@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, X, Globe, FileCode, FileText, Image as ImageIcon, Video, Play, MousePointer2, Upload, Search, Code, Box, CircuitBoard } from 'lucide-react';
+import { Plus, X, Globe, FileCode, FileText, Image as ImageIcon, Video, Play, MousePointer2, Upload, Search, Code, Box, CircuitBoard, Camera } from 'lucide-react';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { useProjectStore } from '../store/projectStore';
 import { addSource } from '../services/agentService';
@@ -16,6 +16,7 @@ import SlicerWorkspace from './SlicerWorkspace';
 import WiringDiagram from './wiring/WiringDiagram';
 import type { WiringDiagramData } from './wiring/wiringTypes';
 import UnknownViewer from './UnknownViewer';
+import RtspViewer from './RtspViewer';
 
 const icons: Record<string, React.ElementType> = {
   web: Globe,
@@ -28,6 +29,7 @@ const icons: Record<string, React.ElementType> = {
   youtube: Play,
   slicer: Box,
   wiring: CircuitBoard,
+  rtsp: Camera,
   unknown: MousePointer2,
 };
 
@@ -113,6 +115,9 @@ export default function CenterWorkspace() {
   };
   const newWiringTab = () => {
     addTab({ title: 'Wiring Diagram', type: 'wiring' });
+  };
+  const newRtspTab = () => {
+    addTab({ title: 'Printer Camera', type: 'rtsp', url: '' });
   };
 
   useEffect(() => {
@@ -203,6 +208,12 @@ export default function CenterWorkspace() {
               >
                 <CircuitBoard className="w-3.5 h-3.5 text-yellow-400" /> Wiring Diagram
               </button>
+              <button
+                onClick={() => { newRtspTab(); setMenuOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs text-anvil-text hover:bg-anvil-panelHover flex items-center gap-2"
+              >
+                <Camera className="w-3.5 h-3.5 text-green-400" /> Printer Camera
+              </button>
             </div>
           )}
         </div>
@@ -235,6 +246,7 @@ export default function CenterWorkspace() {
             {activeTab.type === 'wiring' && (
               <WiringDiagram data={(activeTab.content ? JSON.parse(activeTab.content) : { modules: [], connections: [] }) as WiringDiagramData} onDelete={() => closeTab(activeTab.id)} />
             )}
+            {activeTab.type === 'rtsp' && <RtspViewer url={activeTab.url || ''} onUrlChange={(url) => updateTab(activeTab.id, { url })} />}
             {activeTab.type === 'unknown' && <UnknownViewer title={activeTab.title} />}
           </div>
         ) : (
