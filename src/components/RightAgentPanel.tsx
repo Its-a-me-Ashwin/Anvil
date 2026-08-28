@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Mic, MicOff, Bot, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore';
-import { chatProject, getSession, addSource, type ToolCall } from '../services/agentService';
+import { chatProject, getSession, type ToolCall } from '../services/agentService';
 import { useActivityStore } from '../store/activityStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { resolveWorkspacePath } from '../services/fileService';
@@ -149,22 +149,10 @@ export default function RightAgentPanel() {
       // rename above so this isn't clobbered by setCurrentProject's clear.
       refreshProjectState(project.id);
 
-      // Extract any URLs from the assistant response and add them as web sources.
-      const urls = data.response.match(/https?:\/\/[^\s<>"'{}|\\^`\[\]]+/g) || [];
-      const seen = new Set<string>();
-      for (const url of urls) {
-        if (seen.has(url)) continue;
-        seen.add(url);
-        try {
-          const host = new URL(url).hostname.replace(/^www\./, '');
-          await addSource(project.id, { type: 'web', title: host, url, added_at: new Date().toISOString() });
-        } catch {
-          // Ignore individual source tracking failures.
-        }
-      }
-      if (urls.length > 0) {
-        loadSources(project.id);
-      }
+      // The backend auto-adds a source for every URL Gemini's search
+      // grounding actually surfaced this turn (see _grounding_sources in
+      // server.py) — just pick up whatever it wrote.
+      loadSources(project.id);
     } catch (err: any) {
       addMessage('assistant', `Error: ${err?.message || 'Failed to reach agent.'}`);
     } finally {

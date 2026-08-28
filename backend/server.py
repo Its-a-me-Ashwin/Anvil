@@ -10,8 +10,10 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import os
+import re
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -20,6 +22,7 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 import dotenv
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -103,6 +106,11 @@ class SourceItem(BaseModel):
     title: str
     url: str | None = None
     added_at: str | None = None
+    # The real site domain, when known independently of `url` — Gemini's
+    # grounding chunks give both a redirect uri (vertexaisearch.cloud.google.com/...)
+    # and the actual source domain; showing the latter (e.g. for a favicon)
+    # is more useful than whatever host the url itself resolves to.
+    domain: str | None = None
 
 
 # -----------------------------------------------------------------------------
@@ -399,6 +407,76 @@ async def get_project(project_id: str) -> dict:
     }
 
 
+def _merge_sources(existing: list[dict], new_items: list[dict]) -> list[dict]:
+    """Append new_items to existing, skipping any whose url already exists
+    (untitled/url-less items are never deduped against each other)."""
+    seen_urls = {s["url"] for s in existing if s.get("url")}
+    merged = list(existing)
+    for item in new_items:
+        url = item.get("url")
+        if url and url in seen_urls:
+            continue
+        if url:
+            seen_urls.add(url)
+        merged.append(item)
+    return merged
+
+
+_TITLE_RE = re.compile(rb"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+
+
+async def _resolve_page_title(client: httpx.AsyncClient, url: str) -> str | None:
+    """Best-effort real page <title> for a grounding source — the grounding
+    API only ever gives us the bare domain (see _grounding_sources), never
+    anything from the page itself."""
+    try:
+        resp = await client.get(url, follow_redirects=True, timeout=4.0)
+        match = _TITLE_RE.search(resp.content[:65536])
+        if not match:
+            return None
+        title = html.unescape(match.group(1).decode("utf-8", errors="ignore"))
+        title = re.sub(r"\s+", " ", title).strip()
+        return title[:200] or None
+    except Exception:
+        return None
+
+
+async def _enrich_source_titles(sources: list[dict]) -> None:
+    """Mutate each web source's title in place with the real page title, when
+    fetchable, falling back to the grounding-derived (domain) title otherwise.
+    Runs the fetches concurrently so this adds at most ~4s, not 4s-per-source."""
+    web_sources = [s for s in sources if s.get("type") == "web" and s.get("url")]
+    if not web_sources:
+        return
+    async with httpx.AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
+        titles = await asyncio.gather(*(_resolve_page_title(client, s["url"]) for s in web_sources))
+    for s, title in zip(web_sources, titles):
+        if title:
+            s["title"] = title
+
+
+def _grounding_sources(event) -> list[dict]:
+    """Real, agent-verified sources from a Gemini google_search grounding
+    event — as opposed to a URL the model merely mentions in prose, or one
+    it names 'from its own knowledge' via a tool call."""
+    metadata = getattr(event, "grounding_metadata", None)
+    if not metadata or not metadata.grounding_chunks:
+        return []
+    added_at = _now().isoformat()
+    sources = []
+    for chunk in metadata.grounding_chunks:
+        web = getattr(chunk, "web", None)
+        if web and web.uri:
+            sources.append({
+                "type": "web",
+                "title": web.title or web.domain or web.uri,
+                "url": web.uri,
+                "domain": web.domain,
+                "added_at": added_at,
+            })
+    return sources
+
+
 @app.get("/projects/{project_id}/sources")
 async def get_project_sources(project_id: str) -> dict:
     doc = await _projects_collection().document(project_id).get()
@@ -415,9 +493,8 @@ async def add_project_source(project_id: str, item: SourceItem) -> dict:
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Project not found")
     project = doc.to_dict()
-    sources = project.get("sources") or []
     source = item.model_dump()
-    sources.append(source)
+    sources = _merge_sources(project.get("sources") or [], [source])
     await doc_ref.update({
         "sources": sources,
         "updated_at": _now(),
@@ -515,12 +592,14 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
     response_parts: list[str] = []
     tool_calls: dict[str, ToolCallInfo] = {}
     tool_call_order: list[str] = []
+    grounding_sources: list[dict] = []
 
     async for event in r.run_async(
         user_id=user_id,
         session_id=session_id,
         new_message=content,
     ):
+        grounding_sources.extend(_grounding_sources(event))
         if not event.content:
             continue
         for part in event.content.parts:
@@ -540,6 +619,9 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
             for part in event.content.parts:
                 if part.text:
                     response_parts.append(part.text)
+
+    if grounding_sources:
+        await _enrich_source_titles(grounding_sources)
 
     response_text = "\n".join(response_parts)
     ordered_tool_calls = [tool_calls[cid] for cid in tool_call_order]
@@ -566,11 +648,14 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
             except Exception as exc:
                 logger.warning("Failed to suggest project name: %s", exc)
 
-    await doc_ref.update({
+    update = {
         "name": project_name,
         "updated_at": _now(),
         "session_id": session_id,
-    })
+    }
+    if grounding_sources:
+        update["sources"] = _merge_sources(project.get("sources") or [], grounding_sources)
+    await doc_ref.update(update)
 
     return ProjectChatResponse(
         response=response_text, project_name=project_name, tool_calls=ordered_tool_calls

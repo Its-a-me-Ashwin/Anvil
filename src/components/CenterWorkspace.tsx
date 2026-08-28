@@ -79,40 +79,40 @@ export default function CenterWorkspace() {
       await trackSource('code', file.name);
     } else if (type === 'pdf') {
       addTab({ title: file.name, type: 'pdf', file });
-      await trackSource('pdf', file.name);
+      // Blob URLs only resolve in this tab for this session — the data
+      // source card's preview falls back to a plain icon once it's stale
+      // (e.g. after a reload), rather than persisting real file storage.
+      await trackSource('pdf', file.name, URL.createObjectURL(file));
     } else if (type === 'image') {
       addTab({ title: file.name, type: 'image', file });
-      await trackSource('image', file.name);
+      await trackSource('image', file.name, URL.createObjectURL(file));
     } else if (type === 'video') {
       addTab({ title: file.name, type: 'video', file });
-      await trackSource('video', file.name);
+      await trackSource('video', file.name, URL.createObjectURL(file));
     }
   };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Opening a workspace tool tab isn't itself a "data source" — only the
+  // real content the user or agent actually brings in (an upload, a
+  // grounded search result) should ever land in the Data Sources strip.
   const newWebTab = () => {
     addTab({ title: 'Browser', type: 'web', url: 'https://example.com' });
-    trackSource('web', 'Browser', 'https://example.com');
   };
 
   const newCodeServerTab = () => {
     addTab({ title: 'VS Code', type: 'codeserver', url: 'http://localhost:8080' });
-    trackSource('code', 'VS Code', 'http://localhost:8080');
   };
   const newYouTubeTab = () => {
-    const url = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
-    addTab({ title: 'YouTube', type: 'youtube', url });
-    trackSource('youtube', 'YouTube', url);
+    addTab({ title: 'YouTube', type: 'youtube', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ' });
   };
   const newSlicerTab = () => {
     addTab({ title: 'Bambu Slicer', type: 'slicer' });
-    trackSource('slicer', 'Bambu Slicer');
   };
   const newWiringTab = () => {
     addTab({ title: 'Wiring Diagram', type: 'wiring' });
-    trackSource('wiring', 'Wiring Diagram');
   };
 
   useEffect(() => {

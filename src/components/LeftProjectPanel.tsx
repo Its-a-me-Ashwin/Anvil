@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { ChevronRight, Lock, Pencil, Zap, CheckCircle2, Circle, Link as LinkIcon } from 'lucide-react';
+import { ChevronRight, Lock, Pencil, Zap, CheckCircle2, Circle } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore';
 
-type SectionKey = 'objective' | 'constraints' | 'inventory' | 'sources' | 'progress';
+type SectionKey = 'objective' | 'constraints' | 'inventory' | 'progress';
 
 interface CollapsibleProps {
   title: string;
@@ -39,7 +39,6 @@ export default function LeftProjectPanel() {
     objective: true,
     constraints: true,
     inventory: true,
-    sources: false,
     progress: true,
   });
 
@@ -143,30 +142,6 @@ export default function LeftProjectPanel() {
                 </div>
               ))}
             </div>
-          )}
-        </Collapsible>
-
-        <Collapsible title="Data Sources" open={open.sources} onToggle={() => toggle('sources')}>
-          {(projectState?.data_sources || []).length === 0 ? (
-            <Empty text="No data sources yet." />
-          ) : (
-            <ul className="space-y-2">
-              {(projectState?.data_sources || []).map((s) => (
-                <li key={s.id} className="flex items-center justify-between text-anvil-text gap-2">
-                  <a
-                    href={s.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 truncate hover:text-anvil-accent"
-                    title={s.url}
-                  >
-                    <LinkIcon className="w-3.5 h-3.5 text-anvil-muted shrink-0" />
-                    <span className="truncate">{s.title}</span>
-                  </a>
-                  <span className="text-xs text-anvil-accent shrink-0">{s.type}</span>
-                </li>
-              ))}
-            </ul>
           )}
         </Collapsible>
 

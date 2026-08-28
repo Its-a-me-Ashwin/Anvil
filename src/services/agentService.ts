@@ -5,6 +5,7 @@ export interface SourceItem {
   title: string;
   url?: string | null;
   added_at?: string | null;
+  domain?: string | null;
 }
 
 export interface Project {
