@@ -212,7 +212,7 @@ export default function CenterWorkspace() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 relative">
+      <div className="flex-1 min-h-0 relative overflow-hidden">
         {isDragging && (
           <div className="absolute inset-0 z-50 bg-anvil-accent/10 border-2 border-dashed border-anvil-accent flex flex-col items-center justify-center text-anvil-accent">
             <Upload className="w-10 h-10 mb-2" />

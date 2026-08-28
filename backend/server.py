@@ -35,6 +35,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 import agent as anvil_agent
 from adapters.cad.assembly import Assembly
+from adapters.filesystem.adapter import PROJECT_DIR
 from adapters.state.adapter import read_project_summary
 from workers import vision as vision_worker
 
@@ -460,6 +461,23 @@ async def get_cad_model(project_id: str) -> FileResponse:
 
     path = await asyncio.to_thread(_export)
     return FileResponse(path, media_type="application/octet-stream", filename=f"{project_id}.stl")
+
+
+@app.get("/workspace/resolve")
+async def resolve_workspace_path(path: str) -> dict:
+    """Resolve a (possibly relative) path the agent's filesystem tools just
+    touched to an absolute path on disk, so the frontend can deep-link the
+    embedded VS Code Server iframe straight to that file."""
+    def _resolve() -> str:
+        target = (PROJECT_DIR / path).resolve()
+        if not target.is_relative_to(PROJECT_DIR):
+            raise HTTPException(status_code=403, detail="Path escapes project directory")
+        if not target.exists():
+            raise HTTPException(status_code=404, detail="Path not found")
+        return str(target)
+
+    abs_path = await asyncio.to_thread(_resolve)
+    return {"path": path, "abs_path": abs_path}
 
 
 @app.post("/projects/{project_id}/chat", response_model=ProjectChatResponse)

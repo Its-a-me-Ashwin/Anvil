@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Monitor, Settings, ExternalLink } from 'lucide-react';
 
 interface CodeServerWorkspaceProps {
@@ -9,6 +9,17 @@ export default function CodeServerWorkspace({ url }: CodeServerWorkspaceProps) {
   const [serverUrl, setServerUrl] = useState(url || 'http://localhost:8080');
   const [inputUrl, setInputUrl] = useState(url || 'http://localhost:8080');
   const [loadError, setLoadError] = useState(false);
+
+  // `url` only feeds the initial useState above, so a later change to it
+  // (e.g. the chat auto-opening a different file the agent just wrote) is
+  // otherwise silently ignored by an already-mounted tab — sync it here.
+  useEffect(() => {
+    if (url && url !== serverUrl) {
+      setLoadError(false);
+      setServerUrl(url);
+      setInputUrl(url);
+    }
+  }, [url, serverUrl]);
 
   const applyUrl = (e: React.FormEvent) => {
     e.preventDefault();

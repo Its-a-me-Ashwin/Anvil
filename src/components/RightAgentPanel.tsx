@@ -1,9 +1,50 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Mic, MicOff, Bot, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore';
-import { chatProject, getSession, addSource } from '../services/agentService';
+import { chatProject, getSession, addSource, type ToolCall } from '../services/agentService';
 import { useActivityStore } from '../store/activityStore';
+import { useWorkspaceStore } from '../store/workspaceStore';
+import { resolveWorkspacePath } from '../services/fileService';
+import { buildVsCodeOpenUrl } from '../lib/vscodeLink';
 import ToolCallCard from './ToolCallCard';
+
+const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
+
+// Whenever this turn's tool calls wrote or edited a file, pull the real VS
+// Code Server tab to the front and deep-link it straight to that file (or
+// all of them, if several were touched), instead of making the user hunt
+// for the "VS Code" tab and open it themselves.
+async function openTouchedFiles(toolCalls: ToolCall[] | undefined) {
+  const paths = Array.from(
+    new Set(
+      (toolCalls || [])
+        .filter((c) => FILE_WRITE_TOOLS.has(c.name) && typeof c.args?.path === 'string')
+        .map((c) => c.args.path as string)
+    )
+  );
+  if (paths.length === 0) return;
+
+  const absPaths: string[] = [];
+  for (const path of paths) {
+    try {
+      const { abs_path } = await resolveWorkspacePath(path);
+      absPaths.push(abs_path);
+    } catch {
+      // File may have been removed since, or lies outside the allowed root.
+    }
+  }
+  if (absPaths.length === 0) return;
+
+  const url = buildVsCodeOpenUrl(absPaths);
+  const { tabs, addTab, updateTab, setActiveTab } = useWorkspaceStore.getState();
+  const existing = tabs.find((t) => t.type === 'codeserver');
+  if (existing) {
+    updateTab(existing.id, { url });
+    setActiveTab(existing.id);
+  } else {
+    addTab({ title: 'VS Code', type: 'codeserver', url });
+  }
+}
 
 export default function RightAgentPanel() {
   const [tab, setTab] = useState<'chat' | 'activity' | 'memory'>('chat');
@@ -65,6 +106,7 @@ export default function RightAgentPanel() {
       const project = currentProject;
       const data = await chatProject(project.id, text);
       addMessage('assistant', data.response, data.tool_calls);
+      openTouchedFiles(data.tool_calls);
       if (project.name !== data.project_name) {
         setCurrentProject({ ...project, name: data.project_name });
       }
