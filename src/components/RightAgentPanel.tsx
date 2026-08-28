@@ -7,10 +7,12 @@ import { useWorkspaceStore } from '../store/workspaceStore';
 import { resolveWorkspacePath } from '../services/fileService';
 import { buildVsCodeOpenUrl } from '../lib/vscodeLink';
 import { getWiringDiagram } from '../services/circuitService';
+import { animationUrl } from '../services/animationService';
 import ToolCallCard from './ToolCallCard';
 
 const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
 const CIRCUIT_WRITE_TOOLS = new Set(['create_wiring_diagram', 'update_wiring_diagram']);
+const ANIMATION_TOOL = 'generate_animation';
 
 // Whenever this turn's tool calls wrote or edited a file, pull the real VS
 // Code Server tab to the front and deep-link it straight to that file (or
@@ -79,6 +81,27 @@ async function openCircuitViewer(toolCalls: ToolCall[] | undefined, projectId: s
   }
 }
 
+// Whenever this turn's tool calls generated an animation (generate_animation
+// returned status "ready", not "needs_confirmation"), pull the finished MP4
+// straight into a video tab instead of making the user go find the file.
+function openAnimationViewer(toolCalls: ToolCall[] | undefined, projectId: string) {
+  const call = (toolCalls || []).find((c) => c.name === ANIMATION_TOOL);
+  if (!call) return;
+
+  const result = call.result as { status?: string; filename?: string } | undefined;
+  if (!result || result.status !== 'ready' || !result.filename) return;
+
+  const url = animationUrl(projectId, result.filename);
+  const { tabs, addTab, updateTab, setActiveTab } = useWorkspaceStore.getState();
+  const existing = tabs.find((t) => t.type === 'video' && t.title === 'Animation');
+  if (existing) {
+    updateTab(existing.id, { url });
+    setActiveTab(existing.id);
+  } else {
+    addTab({ title: 'Animation', type: 'video', url });
+  }
+}
+
 export default function RightAgentPanel() {
   const [tab, setTab] = useState<'chat' | 'activity' | 'memory'>('chat');
   const [input, setInput] = useState('');
@@ -141,6 +164,7 @@ export default function RightAgentPanel() {
       addMessage('assistant', data.response, data.tool_calls);
       openTouchedFiles(data.tool_calls);
       openCircuitViewer(data.tool_calls, project.id);
+      openAnimationViewer(data.tool_calls, project.id);
       if (project.name !== data.project_name) {
         setCurrentProject({ ...project, name: data.project_name });
       }

@@ -37,6 +37,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import agent as anvil_agent
+from adapters.animation.adapter import animation_path
 from adapters.cad.assembly import Assembly
 from adapters.circuit.adapter import read_wiring_diagram
 from adapters.filesystem.adapter import PROJECT_DIR
@@ -547,6 +548,19 @@ async def get_project_circuit(project_id: str) -> dict:
     yet), for the frontend to auto-open in the Wiring Diagram tab right
     after the agent creates/updates one."""
     return await asyncio.to_thread(read_wiring_diagram, project_id)
+
+
+@app.get("/projects/{project_id}/animation/{filename}", response_model=None)
+async def get_project_animation(project_id: str, filename: str) -> FileResponse:
+    """Serve an animation generate_animation just wrote to disk, so the
+    frontend can pull it straight into the center canvas's video tab."""
+    try:
+        path = animation_path(project_id, filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Animation not found")
+    return FileResponse(path, media_type="video/mp4", filename=path.name)
 
 
 @app.get("/workspace/resolve")
