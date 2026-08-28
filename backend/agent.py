@@ -11,7 +11,9 @@ instruction describing the assistant as an engineering partner.
 """
 
 import asyncio
+import functools
 import importlib
+import inspect
 import logging
 import os
 import sys
@@ -60,6 +62,34 @@ def _import_function(module_path: str, name: str) -> Callable:
     return fn
 
 
+def _guard_tool_errors(fn: Callable) -> Callable:
+    """Wrap a custom adapter function so a raised exception (bad args,
+    failed validation, missing file, ...) becomes a normal tool-call error
+    the model sees and can react to on its next turn, instead of crashing
+    the whole in-flight chat request. Unlike MCP tools, ADK's FunctionTool
+    has no built-in error boundary for plain Python functions — an
+    uncaught exception here propagates all the way up through the agent
+    runner and aborts the response entirely."""
+    if inspect.iscoroutinefunction(fn):
+        @functools.wraps(fn)
+        async def async_wrapper(*args, **kwargs):
+            try:
+                return await fn(*args, **kwargs)
+            except Exception as exc:
+                logger.warning("Tool %s failed: %s", fn.__name__, exc)
+                return {"error": str(exc)}
+        return async_wrapper
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            logger.warning("Tool %s failed: %s", fn.__name__, exc)
+            return {"error": str(exc)}
+    return wrapper
+
+
 async def build_tools_async() -> list:
     """Return the ADK tools for every adapter in registry.py."""
     tools: list = []
@@ -91,7 +121,7 @@ async def build_tools_async() -> list:
             module_path = _CUSTOM_ADAPTERS[entry.name]
             for name in entry.scope:
                 fn = _import_function(module_path, name)
-                tools.append(FunctionTool(fn))
+                tools.append(FunctionTool(_guard_tool_errors(fn)))
 
     return tools
 

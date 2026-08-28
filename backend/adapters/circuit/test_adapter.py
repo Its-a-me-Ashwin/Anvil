@@ -19,10 +19,10 @@ DEMO_MODULES = [
 ]
 
 DEMO_CONNECTIONS = [
-    ["uno", "5V", "gps", "VCC", "red"],
-    ["uno", "GND", "gps", "GND", "black"],
-    ["uno", "RX", "gps", "TX", "green"],
-    ["uno", "TX", "gps", "RX", "blue"],
+    {"from_module": "uno", "from_pin": "5V", "to_module": "gps", "to_pin": "VCC", "color": "red"},
+    {"from_module": "uno", "from_pin": "GND", "to_module": "gps", "to_pin": "GND", "color": "black"},
+    {"from_module": "uno", "from_pin": "RX", "to_module": "gps", "to_pin": "TX", "color": "green"},
+    {"from_module": "uno", "from_pin": "TX", "to_module": "gps", "to_pin": "RX", "color": "blue"},
 ]
 
 
@@ -45,8 +45,8 @@ def main():
     print("\n-- update_wiring_diagram --")
     updated_modules = DEMO_MODULES + [{"id": "imu", "name": "IMU", "pins": ["VCC", "GND", "SDA", "SCL"]}]
     updated_connections = DEMO_CONNECTIONS + [
-        ["uno", "5V", "imu", "VCC", "red"],
-        ["uno", "GND", "imu", "GND", "black"],
+        {"from_module": "uno", "from_pin": "5V", "to_module": "imu", "to_pin": "VCC", "color": "red"},
+        {"from_module": "uno", "from_pin": "GND", "to_module": "imu", "to_pin": "GND", "color": "black"},
     ]
     result = update_wiring_diagram(project, updated_modules, updated_connections)
     print(result)

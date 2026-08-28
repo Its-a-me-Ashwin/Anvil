@@ -35,6 +35,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 import agent as anvil_agent
 from adapters.cad.assembly import Assembly
+from adapters.circuit.adapter import read_wiring_diagram
 from adapters.filesystem.adapter import PROJECT_DIR
 from adapters.state.adapter import read_project_summary
 from workers import vision as vision_worker
@@ -461,6 +462,14 @@ async def get_cad_model(project_id: str) -> FileResponse:
 
     path = await asyncio.to_thread(_export)
     return FileResponse(path, media_type="application/octet-stream", filename=f"{project_id}.stl")
+
+
+@app.get("/projects/{project_id}/circuit")
+async def get_project_circuit(project_id: str) -> dict:
+    """The project's saved wiring diagram (or an empty one if none exists
+    yet), for the frontend to auto-open in the Wiring Diagram tab right
+    after the agent creates/updates one."""
+    return await asyncio.to_thread(read_wiring_diagram, project_id)
 
 
 @app.get("/workspace/resolve")

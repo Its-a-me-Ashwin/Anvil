@@ -100,15 +100,24 @@ export async function layoutWiringDiagram(data: WiringDiagramData): Promise<{ no
   const nodes: Node<WiringNodeData>[] = (layout.children || []).map((child) => {
     const m = modMap.get(child.id)!;
     const { width, height } = nodeDimensions(m, data.connections);
+    const { order } = pinOrder(m, data.connections);
     const sides: Record<string, 'left' | 'right'> = {};
     const ports: Record<string, { x: number; y: number }> = {};
     m.pins.forEach((p) => {
       const s = pinSide(m, p, data.connections);
       sides[p] = s === 'WEST' ? 'left' : 'right';
-      const port = child.ports?.find((pr) => pr.id === `${m.id}::${p}`);
+      // Always use our own side+order calculation for the rendered dot/label
+      // position, the same one fed to ELK as each port's input coordinate —
+      // never ELK's own (possibly reassigned) output port position. ELK is
+      // free to move an unconnected port to whichever side minimizes edge
+      // crossings regardless of the 'FIXED_SIDE' constraint we requested,
+      // which desyncs the dot (drawn from ELK's position) from its label
+      // (drawn from our independently-computed `sides`), overlapping them.
+      // React Flow draws edges from its own Handle DOM positions anyway
+      // (see WiringEdge), not ELK's routing, so this loses nothing.
       ports[p] = {
-        x: port?.x ?? (s === 'WEST' ? 0 : width),
-        y: port?.y ?? height / 2,
+        x: s === 'WEST' ? 0 : width,
+        y: 18 + (order[p] ?? 0) * PIN_SPACING,
       };
     });
     return {

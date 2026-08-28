@@ -6,9 +6,11 @@ import { useActivityStore } from '../store/activityStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { resolveWorkspacePath } from '../services/fileService';
 import { buildVsCodeOpenUrl } from '../lib/vscodeLink';
+import { getWiringDiagram } from '../services/circuitService';
 import ToolCallCard from './ToolCallCard';
 
 const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
+const CIRCUIT_WRITE_TOOLS = new Set(['create_wiring_diagram', 'update_wiring_diagram']);
 
 // Whenever this turn's tool calls wrote or edited a file, pull the real VS
 // Code Server tab to the front and deep-link it straight to that file (or
@@ -43,6 +45,37 @@ async function openTouchedFiles(toolCalls: ToolCall[] | undefined) {
     setActiveTab(existing.id);
   } else {
     addTab({ title: 'VS Code', type: 'codeserver', url });
+  }
+}
+
+// Whenever this turn's tool calls created, updated, or deleted the
+// project's wiring diagram, pull the Wiring Diagram tab to the front with
+// the latest version, instead of making the user open it themselves from
+// the "+" menu.
+async function openCircuitViewer(toolCalls: ToolCall[] | undefined, projectId: string) {
+  const names = new Set((toolCalls || []).map((c) => c.name));
+  const { tabs, addTab, updateTab, setActiveTab, closeTab } = useWorkspaceStore.getState();
+  const existing = tabs.find((t) => t.type === 'wiring');
+
+  const wasDeleted = names.has('delete_wiring_diagram');
+  const wasWritten = [...names].some((n) => CIRCUIT_WRITE_TOOLS.has(n));
+  if (!wasDeleted && !wasWritten) return;
+
+  if (wasDeleted && !wasWritten) {
+    if (existing) closeTab(existing.id);
+    return;
+  }
+
+  try {
+    const content = JSON.stringify(await getWiringDiagram(projectId));
+    if (existing) {
+      updateTab(existing.id, { content });
+      setActiveTab(existing.id);
+    } else {
+      addTab({ title: 'Wiring Diagram', type: 'wiring', content });
+    }
+  } catch {
+    // Nothing to show if the fetch races with a delete in the same turn.
   }
 }
 
@@ -107,6 +140,7 @@ export default function RightAgentPanel() {
       const data = await chatProject(project.id, text);
       addMessage('assistant', data.response, data.tool_calls);
       openTouchedFiles(data.tool_calls);
+      openCircuitViewer(data.tool_calls, project.id);
       if (project.name !== data.project_name) {
         setCurrentProject({ ...project, name: data.project_name });
       }
