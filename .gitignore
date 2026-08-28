@@ -22,6 +22,7 @@ __pycache__/
 backend/.env
 backend/sandbox_project/cad_output/assemblies/
 backend/circuit_output/
+backend/sandbox_project/animation_output/
 
 # Editor directories and files
 .vscode/*

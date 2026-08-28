@@ -80,6 +80,16 @@ ADAPTERS: list[AdapterEntry] = [
         status="testing",
     ),
     AdapterEntry(
+        name="animation",
+        description=(
+            "Generate short, simple explainer animations via Veo (e.g. show A, "
+            "then show B, for a comparison question)."
+        ),
+        backing="custom",
+        scope=["generate_animation"],
+        status="testing",
+    ),
+    AdapterEntry(
         name="state",
         description=(
             "Firestore-backed project state: objective, constraints, inventory, "
