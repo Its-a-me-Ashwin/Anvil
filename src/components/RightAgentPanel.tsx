@@ -153,6 +153,7 @@ export default function RightAgentPanel() {
   const [sending, setSending] = useState(false);
   const [listening, setListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
   const sendingRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const baseTextRef = useRef('');
@@ -177,10 +178,29 @@ export default function RightAgentPanel() {
     sendingRef.current = sending;
   }, [sending]);
 
+  // Keep the transcript pinned to the bottom while streaming, but do it
+  // without the jitter the naive version caused. Two changes matter:
+  // (1) only auto-scroll when the user is already near the bottom, so a tool
+  //     card collapsing (which shrinks content height) can't yank the view
+  //     while they're reading further up; and
+  // (2) defer the scroll to the next animation frame, so it reads the height
+  //     *after* the collapse/expand has laid out — no overshoot-then-clamp
+  //     bounce.
+  const onTranscriptScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 80;
+  };
+
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (!stickToBottomRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
   }, [messages]);
 
   useEffect(() => {
@@ -344,7 +364,7 @@ export default function RightAgentPanel() {
       </div>
 
       {tab === 'chat' && (
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={scrollRef} onScroll={onTranscriptScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="rounded-lg bg-anvil-panelHover border border-anvil-border p-3">
             <div className="flex items-start gap-3">
               <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
