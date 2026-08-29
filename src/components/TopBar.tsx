@@ -134,7 +134,7 @@ export default function TopBar() {
   };
 
   return (
-    <div className="h-14 shrink-0 bg-anvil-panel border-b border-anvil-border flex items-center justify-between px-4 z-20">
+    <div className="h-14 shrink-0 bg-anvil-panel border-b border-anvil-border flex items-center justify-between px-4 z-[60]">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">A</div>
@@ -152,21 +152,23 @@ export default function TopBar() {
           </button>
 
           {projectOpen && (
-            <div className="absolute top-full left-0 mt-2 w-64 rounded-lg bg-anvil-panelHover border border-anvil-border shadow-xl z-50 overflow-hidden">
-              <div className="px-3 py-2 text-xs font-semibold text-anvil-muted uppercase tracking-wider">Recent Projects</div>
-              {projects.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => selectProject(p)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-anvil-border flex items-center gap-2 text-anvil-text"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-anvil-success" />
-                  {p.name}
-                </button>
-              ))}
+            <div className="absolute top-full left-0 mt-2 w-72 rounded-lg bg-anvil-panelHover border border-anvil-border shadow-xl z-50 flex flex-col overflow-hidden">
+              <div className="px-3 py-2 text-xs font-semibold text-anvil-muted uppercase tracking-wider shrink-0">Recent Projects</div>
+              <div className="overflow-y-auto max-h-64">
+                {projects.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => selectProject(p)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-anvil-border flex items-center gap-2 text-anvil-text"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-anvil-success shrink-0" />
+                    <span className="truncate">{p.name}</span>
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={startNewProject}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-anvil-border text-anvil-text"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-anvil-border text-anvil-text shrink-0 border-t border-anvil-border"
               >
                 + New Project
               </button>
