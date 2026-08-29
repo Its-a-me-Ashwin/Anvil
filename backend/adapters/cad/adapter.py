@@ -63,6 +63,58 @@ def add_cone(
     )
 
 
+def add_elliptical_cone(
+    project: str, name: str, bottom_major_radius: float, bottom_minor_radius: float, height: float,
+    top_major_radius: float = 0.0, top_minor_radius: float = 0.0,
+    position: tuple = (0, 0, 0), rotation: tuple = (0, 0, 0),
+) -> None:
+    """An elliptical cone — an ellipse base (bottom_major_radius x
+    bottom_minor_radius) tapering over height to a point, e.g. the tapered
+    tip of a rocket or aircraft nose cone with a non-circular cross-section.
+    Pass top_major_radius/top_minor_radius (both > 0) instead of leaving
+    them at 0 for a frustum (a smaller top ellipse) rather than a sharp
+    point."""
+    Assembly(project).add_part(
+        name, "elliptical_cone",
+        {
+            "bottom_major_radius": bottom_major_radius,
+            "bottom_minor_radius": bottom_minor_radius,
+            "top_major_radius": top_major_radius,
+            "top_minor_radius": top_minor_radius,
+            "height": height,
+        },
+        position, rotation,
+    )
+
+
+def add_prism(
+    project: str, name: str, side_count: int, outer_radius: float, height: float,
+    position: tuple = (0, 0, 0), rotation: tuple = (0, 0, 0),
+) -> None:
+    """A regular N-sided prism — outer_radius is the circumradius (center to
+    each corner, not to the middle of a face), extruded to height. E.g. a
+    hex standoff (side_count=6) or a triangular brace (side_count=3)."""
+    Assembly(project).add_part(
+        name, "prism",
+        {"side_count": side_count, "outer_radius": outer_radius, "height": height},
+        position, rotation,
+    )
+
+
+def circular_pattern(project: str, names: list, axis: int, count: int) -> list:
+    """Arrange copies of existing part(s) evenly around a full circle,
+    pivoting on the center of the assembly's overall bounding box — not the
+    world origin, so the pattern is centered on the design as a whole rather
+    than wherever (0,0,0) happens to be. axis is 1 (X), 2 (Y), or 3 (Z) — the
+    line through that center the copies rotate around. count is the total
+    number of instances spaced evenly across 360 degrees, including the
+    original (e.g. count=6 places the original plus 5 new copies every 60
+    degrees). Each new copy is both moved and re-rotated to match its new
+    angular position, named '<part>_pattern2', '<part>_pattern3', etc.
+    Returns the list of newly created part names."""
+    return Assembly(project).circular_pattern(names, axis, count)
+
+
 def position_part(project: str, name: str, position: tuple = None, rotation: tuple = None) -> None:
     """Move and/or rotate an existing part. Pass only what changes."""
     Assembly(project).position_part(name, position, rotation)

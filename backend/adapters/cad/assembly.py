@@ -11,7 +11,7 @@ side, each in its own file.
 import json
 from pathlib import Path
 
-from build123d import Compound, export_gltf, export_step, export_stl
+from build123d import Compound, Location, Rotation, export_gltf, export_step, export_stl
 
 from adapters.cad.geometry import build_shape
 
@@ -20,6 +20,8 @@ ASSEMBLIES_DIR = BACKEND_DIR / "sandbox_project" / "cad_output" / "assemblies"
 ASSEMBLIES_DIR.mkdir(parents=True, exist_ok=True)
 
 _EXPORTERS = {"gltf": export_gltf, "step": export_step, "stl": export_stl}
+
+_PATTERN_AXES = {1: "X", 2: "Y", 3: "Z"}
 
 
 class Assembly:
@@ -127,6 +129,64 @@ class Assembly:
         build_shape(chamfered)  # validate before mutating state
         self.parts[name] = chamfered
         self._save()
+
+    def _bbox_center(self) -> tuple[float, float, float]:
+        """Center of the whole assembly's bounding box — the pivot
+        circular_pattern rotates around, not the world origin."""
+        shapes = [build_shape(p) for p in self.parts.values()]
+        bbox = Compound(children=shapes).bounding_box()
+        return (
+            (bbox.min.X + bbox.max.X) / 2,
+            (bbox.min.Y + bbox.max.Y) / 2,
+            (bbox.min.Z + bbox.max.Z) / 2,
+        )
+
+    def circular_pattern(self, names: list[str], axis: int, count: int) -> list[str]:
+        axis_key = _PATTERN_AXES.get(axis)
+        if axis_key is None:
+            raise ValueError(f"axis must be 1 (X), 2 (Y), or 3 (Z), got {axis!r}")
+        missing = [n for n in names if n not in self.parts]
+        if missing:
+            raise KeyError(f"No part(s) named {missing!r} in project {self.project!r}")
+        if count < 1:
+            raise ValueError(f"count must be >= 1, got {count}")
+        if count == 1:
+            return []
+
+        pivot = self._bbox_center()
+        to_origin = Location((-pivot[0], -pivot[1], -pivot[2]))
+        back_to_pivot = Location(pivot)
+        angle_step = 360.0 / count
+
+        # Each copy is placed by composing (move pivot to origin) -> (rotate
+        # by this copy's share of the circle) -> (move back), then decomposed
+        # back into a plain position/rotation pair so it's stored the same
+        # way as any other part and rebuilds identically via build_shape.
+        new_parts: dict[str, dict] = {}
+        for name in names:
+            original = self.parts[name]
+            for i in range(1, count):
+                copy_name = f"{name}_pattern{i + 1}"
+                if copy_name in self.parts or copy_name in new_parts:
+                    raise ValueError(f"Part {copy_name!r} already exists")
+
+                rotate = Rotation(**{axis_key: angle_step * i})
+                transform = back_to_pivot * rotate * to_origin
+                moved = transform * Location(tuple(original["position"]), tuple(original["rotation"]))
+
+                new_parts[copy_name] = {
+                    "name": copy_name,
+                    "shape": original["shape"],
+                    "params": original["params"],
+                    "position": [moved.position.X, moved.position.Y, moved.position.Z],
+                    "rotation": [moved.orientation.X, moved.orientation.Y, moved.orientation.Z],
+                }
+
+        for copy_name, part in new_parts.items():
+            build_shape(part)  # validate before committing
+            self.parts[copy_name] = part
+        self._save()
+        return list(new_parts.keys())
 
     def list_parts(self) -> list[dict]:
         return [

@@ -8,7 +8,8 @@ the CAD-as-code approach described in arch-spec.md.
 A part definition looks like:
     {
         "name": "housing",
-        "shape": "tube",              # box | cylinder | tube | sphere | cone | boolean | fillet | chamfer
+        "shape": "tube",              # box | cylinder | tube | sphere | cone |
+                                       # elliptical_cone | prism | boolean | fillet | chamfer
         "params": {...shape-specific...},
         "position": [x, y, z],
         "rotation": [rx, ry, rz],     # degrees, Euler
@@ -19,7 +20,20 @@ other part definitions (recursively), so combining or cleaning up parts is
 expressed the same way as any other part rather than as a special case.
 """
 
-from build123d import Box, Cone, Cylinder, Location, Sphere, chamfer, fillet
+from build123d import (
+    Box,
+    Cone,
+    Cylinder,
+    Ellipse,
+    Location,
+    RegularPolygon,
+    Sphere,
+    Vertex,
+    chamfer,
+    extrude,
+    fillet,
+    loft,
+)
 
 _BOOLEAN_OPS = {
     "union": lambda a, b: a + b,
@@ -27,7 +41,10 @@ _BOOLEAN_OPS = {
     "intersect": lambda a, b: a & b,
 }
 
-SHAPE_TYPES = ("box", "cylinder", "tube", "sphere", "cone", "boolean", "fillet", "chamfer")
+SHAPE_TYPES = (
+    "box", "cylinder", "tube", "sphere", "cone", "elliptical_cone", "prism",
+    "boolean", "fillet", "chamfer",
+)
 
 
 def build_shape(part: dict):
@@ -56,6 +73,32 @@ def build_shape(part: dict):
             top_radius=params["top_radius"],
             height=params["height"],
         )
+    elif shape_type == "elliptical_cone":
+        bottom_major = params["bottom_major_radius"]
+        bottom_minor = params["bottom_minor_radius"]
+        if bottom_major <= 0 or bottom_minor <= 0:
+            raise ValueError("bottom_major_radius and bottom_minor_radius must both be > 0")
+        top_major = params.get("top_major_radius", 0.0)
+        top_minor = params.get("top_minor_radius", 0.0)
+        if (top_major > 0) != (top_minor > 0):
+            raise ValueError(
+                "top_major_radius and top_minor_radius must either both be > 0 "
+                "(a frustum) or both left at 0 (a pointed nose-cone tip)"
+            )
+        bottom = Ellipse(x_radius=bottom_major, y_radius=bottom_minor)
+        if top_major > 0:
+            top = Ellipse(x_radius=top_major, y_radius=top_minor).moved(
+                Location((0, 0, params["height"]))
+            )
+        else:
+            top = Vertex(0, 0, params["height"])
+        shape = loft([bottom, top])
+    elif shape_type == "prism":
+        side_count = params["side_count"]
+        if side_count < 3:
+            raise ValueError(f"side_count must be >= 3, got {side_count}")
+        polygon = RegularPolygon(radius=params["outer_radius"], side_count=side_count)
+        shape = extrude(polygon, amount=params["height"])
     elif shape_type == "boolean":
         op = params["op"]
         if op not in _BOOLEAN_OPS:
