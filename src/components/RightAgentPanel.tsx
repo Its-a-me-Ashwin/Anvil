@@ -9,6 +9,7 @@ import { buildVsCodeOpenUrl } from '../lib/vscodeLink';
 import { getWiringDiagram } from '../services/circuitService';
 import { animationUrl } from '../services/animationService';
 import ToolCallCard from './ToolCallCard';
+import MemoryPanel from './MemoryPanel';
 
 const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
 const CIRCUIT_WRITE_TOOLS = new Set(['create_wiring_diagram', 'update_wiring_diagram']);
@@ -156,7 +157,7 @@ export default function RightAgentPanel() {
   const recognitionRef = useRef<any>(null);
   const baseTextRef = useRef('');
 
-  const { messages, currentProject, setCurrentProject, addMessage, refreshProjectState, loadSources } = useProjectStore();
+  const { messages, currentProject, setCurrentProject, addMessage, refreshProjectState, loadSources, projectState } = useProjectStore();
   const { activities, clearActivities } = useActivityStore();
 
   useEffect(() => {
@@ -381,10 +382,8 @@ export default function RightAgentPanel() {
         </div>
       )}
 
-      {tab === 'memory' && (
-        <div className="flex-1 overflow-y-auto p-4 text-xs text-anvil-muted">
-          Memory view coming soon.
-        </div>
+      {tab === 'memory' && currentProject && (
+        <MemoryPanel projectId={currentProject.id} skills={projectState?.skills || []} />
       )}
 
       <div className="p-3 border-t border-anvil-border bg-anvil-panel shrink-0">

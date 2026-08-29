@@ -14,6 +14,8 @@ the "Objective" panel in the UI which is one paragraph, not a list.
 """
 
 import os
+import re
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -237,6 +239,95 @@ def remove_data_source(project_id: str, source_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Skills — the agent's running read on the user's own experience level, for
+# the Memory tab's skill radar chart. Categories are a fixed set (not
+# agent-invented) so the chart's axes stay stable across projects; each
+# category is one Firestore doc holding a 1-5 level plus a growing list of
+# short, specific observations behind that level.
+# ---------------------------------------------------------------------------
+
+SKILL_CATEGORIES = (
+    "CAD & Mechanical Design",
+    "Electronics & Circuits",
+    "Firmware & Embedded Coding",
+    "Software & Web Development",
+    "3D Printing & Manufacturing",
+)
+
+
+def _skill_slug(category: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", category.lower()).strip("_")
+
+
+def _validate_skill_category(category: str) -> None:
+    if category not in SKILL_CATEGORIES:
+        raise ValueError(f"category must be one of {list(SKILL_CATEGORIES)}, got {category!r}")
+
+
+def record_skill_observation(project_id: str, category: str, statement: str) -> dict:
+    """Append a short, specific observation about the user's experience in
+    one fixed skill category (see SKILL_CATEGORIES) — e.g. 'Familiar with
+    Arduino boards but hasn't worked with I2C sensors yet.' Never overwrites
+    prior observations in that category; call remove_skill_statement if one
+    becomes stale or turns out wrong. Call this whenever the conversation
+    reveals something specific about the user's background, the same way
+    you'd call add_constraint for a requirement."""
+    _validate_skill_category(category)
+    doc = _subcollection(project_id, "skills").document(_skill_slug(category))
+    data = doc.get().to_dict() or {"category": category, "level": 0, "statements": []}
+    data["category"] = category
+    data["statements"] = [
+        *data.get("statements", []),
+        {"id": uuid.uuid4().hex, "text": statement, "created_at": _now()},
+    ]
+    data["updated_at"] = _now()
+    doc.set(data)
+    return {"id": doc.id, **data}
+
+
+def set_skill_level(project_id: str, category: str, level: int) -> dict:
+    """Set the user's overall proficiency in one fixed skill category on a
+    1-5 scale (1=novice, 2=beginner, 3=intermediate, 4=advanced, 5=expert)
+    for the Memory tab's skill radar chart. Always overwrites the previous
+    level for that category rather than averaging with it — re-call this
+    whenever your read on the user's skill there changes."""
+    _validate_skill_category(category)
+    if not 1 <= level <= 5:
+        raise ValueError(f"level must be between 1 and 5, got {level}")
+    doc = _subcollection(project_id, "skills").document(_skill_slug(category))
+    data = doc.get().to_dict() or {"category": category, "statements": []}
+    data["category"] = category
+    data["level"] = level
+    data["updated_at"] = _now()
+    doc.set(data)
+    return {"id": doc.id, **data}
+
+
+def read_skills(project_id: str) -> list[dict]:
+    """All recorded skill categories: level (1-5) and the specific
+    observations behind it, for the Memory tab's skill radar chart."""
+    return [
+        {"id": d.id, **d.to_dict()}
+        for d in _subcollection(project_id, "skills").stream()
+    ]
+
+
+def remove_skill_statement(project_id: str, category: str, statement_id: str) -> dict:
+    """Delete one specific observation from a skill category (e.g. it turned
+    out to be wrong or no longer applies) without touching that category's
+    level or its other statements."""
+    _validate_skill_category(category)
+    doc = _subcollection(project_id, "skills").document(_skill_slug(category))
+    data = doc.get().to_dict()
+    if not data:
+        raise KeyError(f"No skill category {category!r} recorded for project {project_id!r}")
+    data["statements"] = [s for s in data.get("statements", []) if s.get("id") != statement_id]
+    data["updated_at"] = _now()
+    doc.set(data)
+    return {"id": doc.id, **data}
+
+
+# ---------------------------------------------------------------------------
 # Decisions
 # ---------------------------------------------------------------------------
 
@@ -281,7 +372,7 @@ def read_decisions(project_id: str) -> list[dict]:
 
 def read_project_summary(project_id: str) -> dict:
     """Return the objective, constraints, inventory, objectives (progress),
-    decisions, data sources, and artifacts for a project."""
+    decisions, data sources, skills, and artifacts for a project."""
     objective = read_project_objective(project_id)
     return {
         "project_id": project_id,
@@ -291,6 +382,7 @@ def read_project_summary(project_id: str) -> dict:
         "objectives": read_objectives(project_id),
         "decisions": read_decisions(project_id),
         "data_sources": read_data_sources(project_id),
+        "skills": read_skills(project_id),
         "artifacts": [
             {"id": d.id, **d.to_dict()}
             for d in _subcollection(project_id, "artifacts").stream()
