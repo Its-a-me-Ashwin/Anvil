@@ -28,6 +28,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from google.adk import Runner
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.sessions import InMemorySessionService
 from google.genai import Client, types
 from google.cloud import firestore
@@ -617,12 +618,18 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingRes
         response_parts: list[str] = []
         tool_calls: dict[str, ToolCallInfo] = {}
         tool_call_order: list[str] = []
+        results_seen: set[str] = set()
         grounding_sources: list[dict] = []
 
         async for event in r.run_async(
             user_id=user_id,
             session_id=session_id,
             new_message=content,
+            # SSE mode makes the underlying Gemini call itself stream token
+            # deltas (event.partial=True chunks) instead of blocking for the
+            # whole completion, so the answer can be forwarded as it's
+            # generated rather than appearing all at once at the end.
+            run_config=RunConfig(streaming_mode=StreamingMode.SSE),
         ):
             grounding_sources.extend(_grounding_sources(event))
             if not event.content:
@@ -631,23 +638,36 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingRes
                 if getattr(part, "function_call", None):
                     fc = part.function_call
                     call_id = fc.id or fc.name
-                    info = ToolCallInfo(id=call_id, name=fc.name, args=dict(fc.args or {}))
-                    tool_calls[call_id] = info
-                    tool_call_order.append(call_id)
-                    logger.info("tool_call: %s(%s)", fc.name, dict(fc.args or {}))
-                    yield _sse("tool_call", info.model_dump())
+                    # In SSE streaming mode, ADK can re-emit the same already-
+                    # complete function_call across more than one event (an
+                    # intermediate one and the consolidated one) — only act on
+                    # the first sighting of a given call id.
+                    if call_id not in tool_calls:
+                        info = ToolCallInfo(id=call_id, name=fc.name, args=dict(fc.args or {}))
+                        tool_calls[call_id] = info
+                        tool_call_order.append(call_id)
+                        logger.info("tool_call: %s(%s)", fc.name, dict(fc.args or {}))
+                        yield _sse("tool_call", info.model_dump())
                 if getattr(part, "function_response", None):
                     fr = part.function_response
                     call_id = fr.id or fr.name
-                    if call_id in tool_calls:
-                        tool_calls[call_id].result = fr.response
-                    logger.info("tool_result: %s -> %s", fr.name, fr.response)
-                    yield _sse("tool_result", {"id": call_id, "result": fr.response})
+                    if call_id not in results_seen:
+                        results_seen.add(call_id)
+                        if call_id in tool_calls:
+                            tool_calls[call_id].result = fr.response
+                        logger.info("tool_result: %s -> %s", fr.name, fr.response)
+                        yield _sse("tool_result", {"id": call_id, "result": fr.response})
+                # Partial chunks carry the live token deltas — stream those
+                # to the client as they arrive. The eventual is_final_response
+                # event carries the complete text as a single (non-partial)
+                # block, which we use for persistence below but don't
+                # re-emit, since it's already been streamed piece by piece.
+                if part.text and event.partial:
+                    yield _sse("text", {"text": part.text})
             if event.is_final_response():
                 for part in event.content.parts:
                     if part.text:
                         response_parts.append(part.text)
-                        yield _sse("text", {"text": part.text})
 
         if grounding_sources:
             await _enrich_source_titles(grounding_sources)
