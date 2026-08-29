@@ -94,16 +94,6 @@ ADAPTERS: list[AdapterEntry] = [
         status="testing",
     ),
     AdapterEntry(
-        name="music",
-        description=(
-            "Generate a short instrumental background track via Lyria RealTime, "
-            "standalone or composed onto an existing generate_animation clip."
-        ),
-        backing="custom",
-        scope=["generate_soundtrack", "score_animation"],
-        status="testing",
-    ),
-    AdapterEntry(
         name="youtube_search",
         description=(
             "Find an existing YouTube tutorial/how-to video for a topic — the "

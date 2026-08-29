@@ -8,14 +8,12 @@ import { resolveWorkspacePath } from '../services/fileService';
 import { buildVsCodeOpenUrl } from '../lib/vscodeLink';
 import { getWiringDiagram } from '../services/circuitService';
 import { animationUrl } from '../services/animationService';
-import { musicUrl } from '../services/musicService';
 import ToolCallCard from './ToolCallCard';
 
 const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
 const CIRCUIT_WRITE_TOOLS = new Set(['create_wiring_diagram', 'update_wiring_diagram']);
 const ANIMATION_TOOL = 'generate_animation';
 const TUTORIAL_VIDEO_TOOL = 'find_tutorial_video';
-const MUSIC_TOOLS = new Set(['generate_soundtrack', 'score_animation']);
 const CAD_WRITE_TOOLS = new Set([
   'add_box', 'add_cylinder', 'add_tube', 'add_sphere', 'add_cone',
   'position_part', 'remove_part', 'boolean_op', 'drill_hole',
@@ -131,32 +129,6 @@ function openTutorialVideoViewer(toolCalls: ToolCall[] | undefined) {
   }
 }
 
-// Whenever this turn's tool calls produced a track (generate_soundtrack —
-// a standalone clip — or score_animation — an existing animation with one
-// muxed in, both returning status "ready"), pull the result into a video
-// tab. A plain <video> element happily plays an audio-only .wav source
-// (native controls, no picture) so this reuses the same tab type as
-// animations/tutorials rather than adding a dedicated audio player just
-// for this one case.
-function openMusicViewer(toolCalls: ToolCall[] | undefined, projectId: string) {
-  const call = (toolCalls || []).find((c) => MUSIC_TOOLS.has(c.name));
-  if (!call) return;
-
-  const result = call.result as { status?: string; filename?: string } | undefined;
-  if (!result || result.status !== 'ready' || !result.filename) return;
-
-  const url = musicUrl(projectId, result.filename);
-  const title = call.name === 'score_animation' ? 'Scored Animation' : 'Soundtrack';
-  const { tabs, addTab, updateTab, setActiveTab } = useWorkspaceStore.getState();
-  const existing = tabs.find((t) => t.type === 'video' && t.title === title);
-  if (existing) {
-    updateTab(existing.id, { url });
-    setActiveTab(existing.id);
-  } else {
-    addTab({ title, type: 'video', url });
-  }
-}
-
 // Whenever this turn's tool calls edited the project's CAD assembly, pull
 // the Bambu Slicer tab (which doubles as the live STL viewer — see
 // SlicerWorkspace's own CAD-polling effect) to the front, instead of making
@@ -238,7 +210,6 @@ export default function RightAgentPanel() {
       openCircuitViewer(data.tool_calls, project.id);
       openAnimationViewer(data.tool_calls, project.id);
       openTutorialVideoViewer(data.tool_calls);
-      openMusicViewer(data.tool_calls, project.id);
       openCadViewer(data.tool_calls);
       if (project.name !== data.project_name) {
         setCurrentProject({ ...project, name: data.project_name });

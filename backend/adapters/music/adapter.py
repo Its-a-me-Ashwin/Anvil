@@ -1,51 +1,44 @@
-"""Music adapter — custom, not MCP.
+"""Music helper — internal, not exposed as its own agent tool.
 
-Generates a short instrumental music clip via Lyria 3 (Gemini API), and can
-compose it onto an existing animation clip that generate_animation
-(adapters/animation/adapter.py) already produced.
+Generates a short instrumental track via Lyria 3 and muxes it onto a video
+file. adapters.animation.adapter.generate_animation calls add_soundtrack
+directly so every generated animation comes back with matching background
+music already built in — this is not a capability the agent invokes on its
+own. There is exactly one video-generation tool from the agent's point of
+view (generate_animation); it always returns a single, already-scored clip,
+not a silent video plus a separate audio artifact to combine.
 
 Uses GEMINI_API_KEY (same key as the rest of the app) — Lyria 3 is served
-from the same Gemini Developer API as Veo, no separate key. If
-GEMINI_API_KEY is unset, both tools fall back to a local mock (a plain sine
-tone via ffmpeg) instead of calling Lyria, so the tool-call and
-center-canvas plumbing can still be exercised without spending anything.
+from the same Gemini Developer API as Veo, no separate key. Falls back to a
+local mock (a plain sine tone via ffmpeg) if GEMINI_API_KEY is unset, so the
+combined-clip plumbing can still be exercised without spending anything —
+same fallback pattern as generate_animation's own Veo mock.
 
 Lyria 3 ("lyria-3-clip-preview") is a single generate_content call — same
 shape as any other Gemini text-in call, not a request/response poll loop
-like Veo and not a websocket stream like the older, separately-documented
-"Lyria RealTime" (models/lyria-realtime-exp) model, which this project's
-API key does not have access to. It always returns a fixed ~30s MP3 clip
-(as an inline_data Part with an audio/* mime type), so generate_soundtrack
-trims it down to the requested duration with ffmpeg after the fact rather
-than controlling generation length directly.
+like Veo and not a websocket stream like the separately-documented "Lyria
+RealTime" (models/lyria-realtime-exp) model, which this project's API key
+does not have access to. It always returns a fixed ~30s MP3 clip (as an
+inline_data Part with an audio/* mime type), so add_soundtrack trims it to
+the video's length with ffmpeg after the fact rather than controlling
+generation length directly, then muxes it in — replacing Veo's own
+auto-generated audio track (Veo 3.x always generates some audio on this API
+key, with no way to opt out) so the two don't layer on top of each other.
 
-score_animation is a separate tool (not folded into generate_animation) so
-the two stay independently callable and independently failable: a Lyria
-outage should degrade to "animation without music," not break animation
-generation, and not every animation needs a soundtrack. It composes by
-muxing a freshly generated track onto an existing clip and stripping Veo's
-own auto-generated audio track first (Veo 3.x always generates audio on
-this API key with no way to opt out — see animation/adapter.py) so the two
-scores don't layer on top of each other.
-
-Output lives in backend/sandbox_project/music_output/<project>/, mirroring
-the per-project output layout the CAD/circuit/animation adapters use.
+All intermediate audio lives in a temp directory and is discarded once
+muxed into the final video — there is no persisted standalone soundtrack
+file and no HTTP route serving one.
 """
 
 import asyncio
 import os
 import shutil
 import subprocess
+import tempfile
 import uuid
 from pathlib import Path
 
 from google import genai
-
-from adapters.animation.adapter import animation_path
-
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-OUTPUT_DIR = BACKEND_DIR / "sandbox_project" / "music_output"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 _LYRIA_TIMEOUT_SECONDS = 90
 
@@ -62,23 +55,6 @@ def _lyria_model() -> str:
     # key has access to ("lyria-3-pro-preview" is the other). Override via
     # LYRIA_MODEL if quality matters more than cost for a given demo.
     return os.environ.get("LYRIA_MODEL", "models/lyria-3-clip-preview")
-
-
-def _project_dir(project: str) -> Path:
-    safe = Path(project).name
-    d = OUTPUT_DIR / safe
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
-def music_path(project_id: str, filename: str) -> Path:
-    """Resolve a project + filename to a path on disk, rejecting anything
-    that would escape that project's music directory."""
-    project_dir = _project_dir(project_id)
-    path = (project_dir / Path(filename).name).resolve()
-    if not path.is_relative_to(project_dir.resolve()):
-        raise ValueError(f"Filename {filename!r} escapes the project's music directory")
-    return path
 
 
 def _ffmpeg_bin() -> str:
@@ -133,7 +109,7 @@ def _extract_audio_bytes(response) -> bytes | None:
     return None
 
 
-async def _call_lyria(mood: str, seconds: float, out_path: Path) -> None:
+async def _call_lyria(mood: str, seconds: float, out_path: Path, tmpdir: Path) -> None:
     """Generate a ~30s instrumental clip from Lyria 3 and trim it down to
     the requested duration.
 
@@ -157,58 +133,19 @@ async def _call_lyria(mood: str, seconds: float, out_path: Path) -> None:
     if not audio_bytes:
         raise RuntimeError("Lyria returned no audio (after retry).")
 
-    raw_path = out_path.with_suffix(".raw.mp3")
+    raw_path = tmpdir / f"{uuid.uuid4().hex}.raw.mp3"
     raw_path.write_bytes(audio_bytes)
-    try:
-        _trim_audio(raw_path, out_path, seconds)
-    finally:
-        raw_path.unlink(missing_ok=True)
+    _trim_audio(raw_path, out_path, seconds)
 
 
-async def generate_soundtrack(project_id: str, mood: str, duration_seconds: float = 8.0) -> dict:
-    """Generate a short instrumental background track for mood/atmosphere —
-    e.g. "calm ambient synth", "upbeat minimal techno", "tense orchestral
-    strings". Returns a standalone MP3 file; use score_animation instead if
-    the goal is to add music to an existing generate_animation clip."""
-    filename = f"{uuid.uuid4().hex}.mp3"
-    out_path = _project_dir(project_id) / filename
-
-    api_key = _gemini_api_key()
-    if api_key:
-        await _call_lyria(mood, duration_seconds, out_path)
-    else:
-        _generate_mock_audio(out_path, duration_seconds)
-
-    return {
-        "status": "ready",
-        "mood": mood,
-        "project_id": project_id,
-        "filename": filename,
-        "source": "lyria" if api_key else "mock",
-    }
-
-
-async def score_animation(project_id: str, animation_filename: str, mood: str) -> dict:
-    """Add a short generated soundtrack to an animation generate_animation
-    already produced, replacing Veo's own auto-generated audio (Veo always
-    generates some audio on this API key; this swaps it for a track that
-    actually matches the requested mood instead). Returns a new, separate
-    video file — the original animation is left untouched."""
-    video_in = animation_path(project_id, animation_filename)
-    if not video_in.exists():
-        raise FileNotFoundError(
-            f"Animation {animation_filename!r} not found for project {project_id!r}"
-        )
-
-    track = await generate_soundtrack(project_id, mood, duration_seconds=8.0)
-    audio_path = music_path(project_id, track["filename"])
-
-    out_filename = f"{uuid.uuid4().hex}.mp4"
-    out_path = _project_dir(project_id) / out_filename
-
+def _mux_audio_onto_video(video_path: Path, audio_path: Path, out_path: Path) -> None:
+    """Combine video_path's picture with audio_path's sound, dropping
+    video_path's own audio track entirely (see module docstring — this is
+    what replaces Veo's auto-generated audio rather than layering onto
+    it)."""
     cmd = [
         _ffmpeg_bin(),
-        "-i", str(video_in),
+        "-i", str(video_path),
         "-i", str(audio_path),
         "-map", "0:v:0",
         "-map", "1:a:0",
@@ -222,11 +159,22 @@ async def score_animation(project_id: str, animation_filename: str, mood: str) -
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg mux failed: {result.stderr.decode(errors='ignore')[:300]}")
 
-    return {
-        "status": "ready",
-        "project_id": project_id,
-        "filename": out_filename,
-        "source_animation": animation_filename,
-        "mood": mood,
-        "source": track["source"],
-    }
+
+async def add_soundtrack(video_path: Path, mood: str, duration_seconds: float = 8.0) -> Path:
+    """Generate a short instrumental track matching `mood` and mux it onto
+    video_path, replacing any audio track video_path already has. Returns
+    the path to a new, combined file written alongside video_path —
+    video_path itself is left untouched; the caller decides whether to keep
+    or discard it once this returns."""
+    with tempfile.TemporaryDirectory(prefix="anvil_music_") as tmpdir_str:
+        tmpdir = Path(tmpdir_str)
+        audio_path = tmpdir / f"{uuid.uuid4().hex}.mp3"
+
+        if _gemini_api_key():
+            await _call_lyria(mood, duration_seconds, audio_path, tmpdir)
+        else:
+            _generate_mock_audio(audio_path, duration_seconds)
+
+        out_path = video_path.with_name(f"{uuid.uuid4().hex}.mp4")
+        _mux_audio_onto_video(video_path, audio_path, out_path)
+        return out_path
