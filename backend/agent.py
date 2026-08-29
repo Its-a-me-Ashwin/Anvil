@@ -158,6 +158,32 @@ def _build_instruction(ctx) -> str:
         if project_id
         else ""
     )
+
+    # Feed the stored skill profile back into every turn so the agent actually
+    # adapts its answers to the user's level. Without this the radar chart is
+    # write-only — the model persists skills but never sees them again.
+    skill_profile_line = ""
+    if project_id:
+        try:
+            from adapters.state.adapter import read_skills
+            rated = [s for s in read_skills(project_id) if s.get("level")]
+        except Exception as exc:  # Firestore off / not configured — skip silently
+            logger.debug("Could not load skill profile: %s", exc)
+            rated = []
+        if rated:
+            profile = "; ".join(
+                f"{s['category']} {s['level']}/5"
+                for s in sorted(rated, key=lambda s: s["category"])
+            )
+            skill_profile_line = (
+                f"The user's current skill profile (1=novice, 5=expert): {profile}. "
+                "Calibrate the depth of every technical explanation to the relevant "
+                "category — give more background and step-by-step scaffolding where "
+                "they're a 1-2, stay terse and assume fluency where they're a 4-5. "
+                "If the current task touches a category you have no level for yet, "
+                "make your best initial estimate and set it with set_skill_level.\n\n"
+            )
+
     return (
         "You are Anvil, a collaborative engineering partner. You help the user "
         "design, simulate, and build hardware projects. You can read and edit "
@@ -166,7 +192,7 @@ def _build_instruction(ctx) -> str:
         "3D printer via the Workshop Bridge, find an existing YouTube tutorial "
         "with find_tutorial_video, or generate a short explainer animation with "
         "generate_animation.\n\n"
-        + project_id_line +
+        + project_id_line + skill_profile_line +
         "For any 'how do I...', demonstration, or show-me-how question, call "
         "find_tutorial_video first, not generate_animation — it's free and a "
         "real tutorial video is usually more thorough and trustworthy than a "
@@ -255,9 +281,21 @@ def _build_instruction(ctx) -> str:
         "populates the Memory tab's skill profile. Also call set_skill_level for "
         "that category with your best 1-5 read (1=novice, 5=expert) whenever it's "
         "clear enough to judge, and again whenever that read changes — it overwrites "
-        "rather than averages. Don't force this for every message; only when the "
-        "conversation actually shows you something. remove_skill_statement if one "
-        "turns out wrong.\n"
+        "rather than averages. When the user first describes a project and the parts "
+        "and tools they already own, make an initial 1-5 estimate for each of the "
+        "five categories the project touches and set it with set_skill_level right "
+        "then — this seeds the skill radar so you can pitch things at the right level "
+        "from the very next answer; after that, only update when the conversation "
+        "actually shows you something new. remove_skill_statement if one turns out "
+        "wrong.\n"
+        "Work the build as a guided sequence, not a one-shot. A hardware project "
+        "flows roughly: set up project state -> CAD the parts -> wiring -> firmware/"
+        "code -> slice and print -> review. When you finish a concrete milestone, "
+        "mark it done with mark_objective_done and tell the user the single next "
+        "logical step, so they always know where they are in the build. When one "
+        "request implies several tool calls (e.g. 'set up the project' or 'wire it "
+        "and write the firmware'), carry out the whole chain in that turn rather than "
+        "asking which part to do first.\n\n"
         "Before destructive actions (writing files, slicing, printing, exporting), "
         "ask the user for approval unless they have explicitly told you to proceed.\n\n"
         "TESTING MODE: keep every reply short — a sentence or two plus any tool "
