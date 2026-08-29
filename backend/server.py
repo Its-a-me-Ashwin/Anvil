@@ -726,11 +726,10 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingRes
 @app.post("/vision/monitor")
 async def vision_monitor() -> dict:
     """Grab a live frame from the printer camera and classify bed/print
-    state. Polled by the frontend's Printer Camera tab every ~1 minute."""
-    result = await vision_worker.analyze_printer_frame()
-    if not result.get("ok"):
-        raise HTTPException(status_code=503, detail=result.get("error"))
-    return result
+    state. Polled by the frontend after Send to Printer, while the Printer
+    Camera tab stays open. Always 200 — "ok": False (with a "reason") is a
+    normal outcome here (camera or Ollama unreachable), not a server error."""
+    return await vision_worker.analyze_printer_frame()
 
 
 # -----------------------------------------------------------------------------

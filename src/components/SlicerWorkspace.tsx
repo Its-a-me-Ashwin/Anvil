@@ -4,9 +4,22 @@ import { sliceModel, sendToPrinter, loadPrinterConfig, checkBridgeHealth, type S
 import { getCadMeta, fetchCadModel } from '../services/cadService';
 import { useProjectStore } from '../store/projectStore';
 import { usePrinterMonitorStore } from '../store/printerMonitorStore';
+import { useWorkspaceStore } from '../store/workspaceStore';
 import StlViewer from './StlViewer';
 
 const CAD_POLL_MS = 2000;
+
+// Bring the Printer Camera tab to front (creating it if needed) so Gemma
+// monitoring — armed right after this — has something visible to watch.
+function openPrinterCameraTab() {
+  const { tabs, addTab, setActiveTab } = useWorkspaceStore.getState();
+  const existing = tabs.find((t) => t.type === 'rtsp');
+  if (existing) {
+    setActiveTab(existing.id);
+  } else {
+    addTab({ title: 'Printer Camera', type: 'rtsp', url: '' });
+  }
+}
 
 interface SlicerWorkspaceProps {
   file?: File;
@@ -146,6 +159,8 @@ export default function SlicerWorkspace({ file: initialFile }: SlicerWorkspacePr
     try {
       await sendToPrinter(slicedPath, printer);
       setStatus({ type: 'success', message: `Sent to ${printer.name}` });
+      openPrinterCameraTab();
+      usePrinterMonitorStore.getState().armMonitoring();
     } catch (err: any) {
       setStatus({ type: 'error', message: err?.message || 'Failed to send print' });
     } finally {

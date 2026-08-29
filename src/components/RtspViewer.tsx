@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, AlertTriangle } from 'lucide-react';
 import { loadPrinterConfig, type PrinterConfig } from '../services/slicerService';
 import { checkPrinterVision } from '../services/visionService';
 import { usePrinterMonitorStore } from '../store/printerMonitorStore';
@@ -20,6 +20,8 @@ export default function RtspViewer(_props: RtspViewerProps) {
   const [printer, setPrinter] = useState<PrinterConfig | null>(() => loadPrinterConfig());
   const [frameSrc, setFrameSrc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const monitoringArmed = usePrinterMonitorStore((s) => s.monitoringArmed);
+  const ollamaOffline = usePrinterMonitorStore((s) => s.ollamaOffline);
   const setVisionResult = usePrinterMonitorStore((s) => s.setResult);
   const setVisionError = usePrinterMonitorStore((s) => s.setError);
 
@@ -49,10 +51,10 @@ export default function RtspViewer(_props: RtspViewerProps) {
     return () => clearInterval(interval);
   }, [printer?.name]);
 
-  // Every minute while this tab is open, ask Gemma (via Ollama) to classify
-  // the bed/print state from a live frame.
+  // Every minute while this tab is open — but only once Send to Printer has
+  // armed monitoring; just opening this tab by hand never starts it.
   useEffect(() => {
-    if (!printer?.name) return;
+    if (!printer?.name || !monitoringArmed) return;
     const check = () => {
       checkPrinterVision()
         .then(setVisionResult)
@@ -61,7 +63,7 @@ export default function RtspViewer(_props: RtspViewerProps) {
     check();
     const interval = setInterval(check, VISION_CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [printer?.name, setVisionResult, setVisionError]);
+  }, [printer?.name, monitoringArmed, setVisionResult, setVisionError]);
 
   return (
     <div className="h-full w-full flex flex-col bg-black">
@@ -71,6 +73,13 @@ export default function RtspViewer(_props: RtspViewerProps) {
           {printer?.name ? `Printer Camera — ${printer.name}` : 'Printer Camera'}
         </span>
       </div>
+
+      {monitoringArmed && ollamaOffline && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border-b border-yellow-500/30 text-yellow-400 text-[11px] shrink-0">
+          <AlertTriangle className="w-3 h-3 shrink-0" />
+          Gemma is offline — spaghetti monitoring is unavailable right now.
+        </div>
+      )}
 
       <div className="flex-1 relative">
         {!printer?.name ? (

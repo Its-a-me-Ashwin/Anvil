@@ -42,11 +42,14 @@ async def fetch_frame() -> bytes:
 async def analyze_printer_frame() -> dict:
     """Fetch a live camera frame and ask the local Ollama vision model to
     classify the printer's state. Returns {"ok": True, "isBedEmpty": bool,
-    "isSpaghetti": bool, "isPrinting": bool} or {"ok": False, "error": str}."""
+    "isSpaghetti": bool, "isPrinting": bool} on success, or {"ok": False,
+    "reason": "camera"|"ollama"|"parse", "error": str} on failure — "reason"
+    lets the frontend tell "Gemma/Ollama is offline" apart from other
+    failures instead of just showing a raw error string."""
     try:
         frame = await fetch_frame()
     except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "error": f"Could not reach printer camera: {exc}"}
+        return {"ok": False, "reason": "camera", "error": f"Could not reach printer camera: {exc}"}
 
     image_b64 = base64.b64encode(frame).decode("utf-8")
     payload = {
@@ -63,12 +66,12 @@ async def analyze_printer_frame() -> dict:
             resp.raise_for_status()
             data = resp.json()
     except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "error": f"Ollama call failed: {exc}"}
+        return {"ok": False, "reason": "ollama", "error": f"Ollama is unreachable: {exc}"}
 
     try:
         parsed = json.loads(data.get("response", "{}"))
     except json.JSONDecodeError:
-        return {"ok": False, "error": "Model did not return valid JSON"}
+        return {"ok": False, "reason": "parse", "error": "Model did not return valid JSON"}
 
     return {
         "ok": True,
