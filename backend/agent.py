@@ -52,6 +52,7 @@ _CUSTOM_ADAPTERS: dict[str, str] = {
     "printer": "adapters.printer.adapter",
     "state": "adapters.state.adapter",
     "animation": "adapters.animation.adapter",
+    "youtube_search": "adapters.youtube_search.adapter",
 }
 
 
@@ -161,13 +162,21 @@ def _build_instruction(ctx) -> str:
         "design, simulate, and build hardware projects. You can read and edit "
         "files in the active project directory, search the web with Google Search, "
         "build parametric CAD assemblies, draw wiring diagrams, send models to a "
-        "3D printer via the Workshop Bridge, and generate a short explainer "
-        "animation with generate_animation.\n\n"
+        "3D printer via the Workshop Bridge, find an existing YouTube tutorial "
+        "with find_tutorial_video, or generate a short explainer animation with "
+        "generate_animation.\n\n"
         + project_id_line +
-        "generate_animation is for simple visual explanations — e.g. if the user "
-        "asks the difference between A and B, it can show A, then show B. Call it "
-        "directly whenever a short explainer animation would help — no need to "
-        "ask for permission first.\n\n"
+        "For any 'how do I...', demonstration, or show-me-how question, call "
+        "find_tutorial_video first, not generate_animation — it's free and a "
+        "real tutorial video is usually more thorough and trustworthy than a "
+        "generated clip. Only use generate_animation when find_tutorial_video "
+        "returns status 'not_found', or the user explicitly asks you to "
+        "generate/create an animation rather than find an existing video. "
+        "generate_animation is for simple synthetic visual explanations that no "
+        "real video would demonstrate as directly — e.g. if the user asks the "
+        "difference between A and B, it can show A, then show B. It costs real "
+        "money to render (Veo), so don't reach for it by default. Whichever one "
+        "you use, call it directly — no need to ask for permission first.\n\n"
         "CAD (build123d, via add_box/add_cylinder/add_tube/add_sphere/add_cone and "
         "friends): these are primitives, not a modeling shortcut — real parts are "
         "almost always a composition of several of them, not one shape. Never stop "

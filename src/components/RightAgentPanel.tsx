@@ -13,6 +13,7 @@ import ToolCallCard from './ToolCallCard';
 const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
 const CIRCUIT_WRITE_TOOLS = new Set(['create_wiring_diagram', 'update_wiring_diagram']);
 const ANIMATION_TOOL = 'generate_animation';
+const TUTORIAL_VIDEO_TOOL = 'find_tutorial_video';
 const CAD_WRITE_TOOLS = new Set([
   'add_box', 'add_cylinder', 'add_tube', 'add_sphere', 'add_cone',
   'position_part', 'remove_part', 'boolean_op', 'drill_hole',
@@ -107,6 +108,27 @@ function openAnimationViewer(toolCalls: ToolCall[] | undefined, projectId: strin
   }
 }
 
+// Whenever this turn's tool calls found an existing YouTube tutorial
+// (find_tutorial_video returned status "found" — the cost-free alternative
+// to generate_animation), pull it into a YouTube tab instead of making the
+// user go find it themselves.
+function openTutorialVideoViewer(toolCalls: ToolCall[] | undefined) {
+  const call = (toolCalls || []).find((c) => c.name === TUTORIAL_VIDEO_TOOL);
+  if (!call) return;
+
+  const result = call.result as { status?: string; embed_url?: string; title?: string } | undefined;
+  if (!result || result.status !== 'found' || !result.embed_url) return;
+
+  const { tabs, addTab, updateTab, setActiveTab } = useWorkspaceStore.getState();
+  const existing = tabs.find((t) => t.type === 'youtube' && t.title === 'Tutorial Video');
+  if (existing) {
+    updateTab(existing.id, { url: result.embed_url });
+    setActiveTab(existing.id);
+  } else {
+    addTab({ title: 'Tutorial Video', type: 'youtube', url: result.embed_url });
+  }
+}
+
 // Whenever this turn's tool calls edited the project's CAD assembly, pull
 // the Bambu Slicer tab (which doubles as the live STL viewer — see
 // SlicerWorkspace's own CAD-polling effect) to the front, instead of making
@@ -187,6 +209,7 @@ export default function RightAgentPanel() {
       openTouchedFiles(data.tool_calls);
       openCircuitViewer(data.tool_calls, project.id);
       openAnimationViewer(data.tool_calls, project.id);
+      openTutorialVideoViewer(data.tool_calls);
       openCadViewer(data.tool_calls);
       if (project.name !== data.project_name) {
         setCurrentProject({ ...project, name: data.project_name });

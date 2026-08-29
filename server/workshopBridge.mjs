@@ -6,14 +6,22 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const IS_WINDOWS = process.platform === 'win32';
+const IS_MAC = process.platform === 'darwin';
 const WORKSHOP_DIR = path.resolve(__dirname, '..', '.anvil-workshop');
-const BAMBU_STUDIO = 'C:/Program Files/Bambu Studio/bambu-studio.exe';
-const BAMBU_CLI = path.resolve(__dirname, '..', '.venv/Scripts/bambu.exe');
-const BAMBU_PYTHON = path.resolve(__dirname, '..', '.venv/Scripts/python.exe');
+const BAMBU_STUDIO = IS_WINDOWS
+  ? 'C:/Program Files/Bambu Studio/bambu-studio.exe'
+  : IS_MAC
+    ? '/Applications/BambuStudio.app/Contents/MacOS/BambuStudio'
+    : 'bambu-studio';
+const BAMBU_CLI = path.resolve(__dirname, '..', IS_WINDOWS ? '.venv/Scripts/bambu.exe' : '.venv/bin/bambu');
+const BAMBU_PYTHON = path.resolve(__dirname, '..', IS_WINDOWS ? '.venv/Scripts/python.exe' : '.venv/bin/python');
 const DISCOVER_SCRIPT = path.resolve(__dirname, 'discoverPrinters.py');
 const BAMBU_CONFIG_DIR = path.resolve(process.env.USERPROFILE || process.env.HOME, '.bambu-cli');
 const BAMBU_PRINTERS_FILE = path.join(BAMBU_CONFIG_DIR, 'printers.json');
-const BAMBU_PROFILE_ROOT = path.resolve(process.env.USERPROFILE || process.env.HOME, 'AppData/Roaming/BambuStudio/system/BBL');
+const BAMBU_PROFILE_ROOT = IS_MAC
+  ? path.resolve(process.env.HOME, 'Library/Application Support/BambuStudio/system/BBL')
+  : path.resolve(process.env.USERPROFILE || process.env.HOME, 'AppData/Roaming/BambuStudio/system/BBL');
 
 const PORT = process.env.WORKSHOP_PORT || 3001;
 
@@ -338,7 +346,7 @@ async function listPrinters() {
 
 async function discoverPrinters() {
   if (!await fileExists(BAMBU_PYTHON)) {
-    return { ok: false, error: 'Python venv not found. Run: python -m venv .venv && pip install bambu-cli' };
+    return { ok: false, error: 'Python venv not found. Run: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt (Windows: .venv\\Scripts\\pip)' };
   }
   const result = await run(BAMBU_PYTHON, [DISCOVER_SCRIPT]);
   if (result.code !== 0) {

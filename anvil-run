@@ -16,15 +16,70 @@ PIDDIR="$RUNDIR/pids"
 
 mkdir -p "$LOGDIR" "$PIDDIR"
 
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=1 ;;
+  *) IS_WINDOWS=0 ;;
+esac
+
+if [ "$IS_WINDOWS" = "1" ]; then
+  BACKEND_PY="$ROOT/backend/.venv/Scripts/python.exe"
+  ROOT_VENV_PY="$ROOT/.venv/Scripts/python.exe"
+else
+  BACKEND_PY="$ROOT/backend/.venv/bin/python"
+  ROOT_VENV_PY="$ROOT/.venv/bin/python"
+fi
+
+# The backend needs Python 3.10+. Prefer a versioned interpreter over a bare
+# "python3", since on macOS that often resolves to the old Xcode Command Line
+# Tools Python (3.9) ahead of Homebrew's in PATH.
+pick_backend_python() {
+  local candidate
+  for candidate in python3.12 python3.11 python3.13 python3.10; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      command -v "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 port_pid() {
   local port="$1"
-  netstat -ano 2>/dev/null | grep -E ":$port\s+" | grep LISTENING | awk '{print $5}' | head -n1
+  if [ "$IS_WINDOWS" = "1" ]; then
+    netstat -ano 2>/dev/null | grep -E ":$port\s+" | grep LISTENING | awk '{print $5}' | head -n1
+  else
+    lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -n1
+  fi
+}
+
+kill_pid() {
+  local pid="$1"
+  if [ "$IS_WINDOWS" = "1" ]; then
+    cmd //c "taskkill /F /T /PID $pid" >/dev/null 2>&1 || true
+  else
+    kill "$pid" >/dev/null 2>&1 || true
+    sleep 0.3
+    kill -9 "$pid" >/dev/null 2>&1 || true
+  fi
+}
+
+ensure_npm_deps() {
+  if [ ! -d "$ROOT/node_modules" ]; then
+    echo "  node_modules not found -- running npm install..."
+    (cd "$ROOT" && npm install) || return 1
+  fi
 }
 
 wait_for_port() {
   local svc="$1" port="$2"
+  local tries=20
+  # Backend spins up an MCP filesystem subprocess and loads the agent before
+  # binding its port, which takes noticeably longer than the other services.
+  if [ "$svc" = "backend" ]; then
+    tries=60
+  fi
   local i pid
-  for i in $(seq 1 20); do
+  for i in $(seq 1 "$tries"); do
     pid="$(port_pid "$port" || true)"
     if [ -n "$pid" ]; then
       return 0
@@ -102,7 +157,7 @@ stop_service() {
     local pid
     pid="$(cat "$pidfile" 2>/dev/null || true)"
     if [ -n "$pid" ]; then
-      cmd //c "taskkill /F /T /PID $pid" >/dev/null 2>&1 || true
+      kill_pid "$pid"
     fi
     rm -f "$pidfile"
   fi
@@ -112,7 +167,7 @@ stop_service() {
   port="$(service_port "$svc")"
   pid="$(port_pid "$port" || true)"
   if [ -n "$pid" ]; then
-    cmd //c "taskkill /F /PID $pid" >/dev/null 2>&1 || true
+    kill_pid "$pid"
   fi
 }
 
@@ -151,21 +206,53 @@ start_service() {
         >"$LOGDIR/firestore.log" 2>&1
       ;;
     bridge)
+      ensure_npm_deps || { echo "  -> npm install failed (see output above)"; return; }
+      if [ ! -x "$ROOT_VENV_PY" ]; then
+        echo "  root Python venv not found (needed for bambu-cli printer discovery/print) -- creating..."
+        local setup_python
+        setup_python="$(pick_backend_python || command -v python3 || true)"
+        if [ -n "$setup_python" ]; then
+          ("$setup_python" -m venv "$ROOT/.venv" \
+            && "$ROOT_VENV_PY" -m pip install -q --upgrade pip \
+            && "$ROOT_VENV_PY" -m pip install -q -r "$ROOT/requirements.txt") || \
+            echo "  -> root venv setup failed (see output above); printer discovery/print will be unavailable until fixed"
+        else
+          echo "  -> no python3 interpreter found; printer discovery/print will be unavailable until 'python3 -m venv .venv && .venv/bin/pip install -r requirements.txt' is run manually"
+        fi
+      fi
       cd "$ROOT"
       nohup npm run bridge >"$LOGDIR/bridge.log" 2>&1 &
       echo $! >"$PIDDIR/bridge.pid"
       ;;
     backend)
+      if [ ! -x "$BACKEND_PY" ]; then
+        echo "  backend virtualenv not found -- running 'make setup'..."
+        local setup_python
+        setup_python="$(pick_backend_python || true)"
+        if [ -n "$setup_python" ]; then
+          (cd "$ROOT/backend" && make setup PYTHON="$setup_python") || {
+            echo "  -> backend setup failed (see output above)"
+            return
+          }
+        else
+          (cd "$ROOT/backend" && make setup) || {
+            echo "  -> backend setup failed -- install Python 3.10+ (e.g. 'brew install python@3.12') and retry"
+            return
+          }
+        fi
+      fi
       cd "$ROOT/backend"
-      nohup .venv/Scripts/python.exe server.py >"$LOGDIR/backend.log" 2>&1 &
+      nohup "$BACKEND_PY" server.py >"$LOGDIR/backend.log" 2>&1 &
       echo $! >"$PIDDIR/backend.pid"
       ;;
     code-server)
+      ensure_npm_deps || { echo "  -> npm install failed (see output above)"; return; }
       cd "$ROOT"
       nohup npm run code-server >"$LOGDIR/code-server.log" 2>&1 &
       echo $! >"$PIDDIR/code-server.pid"
       ;;
     frontend)
+      ensure_npm_deps || { echo "  -> npm install failed (see output above)"; return; }
       cd "$ROOT"
       nohup npm run dev >"$LOGDIR/frontend.log" 2>&1 &
       echo $! >"$PIDDIR/frontend.pid"

@@ -92,6 +92,16 @@ ADAPTERS: list[AdapterEntry] = [
         status="testing",
     ),
     AdapterEntry(
+        name="youtube_search",
+        description=(
+            "Find an existing YouTube tutorial/how-to video for a topic — the "
+            "free, preferred alternative to generating a Veo animation."
+        ),
+        backing="custom",
+        scope=["find_tutorial_video"],
+        status="testing",
+    ),
+    AdapterEntry(
         name="state",
         description=(
             "Firestore-backed project state: objective, constraints, inventory, "
