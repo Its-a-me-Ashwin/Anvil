@@ -154,7 +154,12 @@ def _build_instruction(ctx) -> str:
     project_id_line = (
         f"The current project_id is exactly {project_id!r}. Always pass this "
         "exact string as project_id to every state tool call — never invent, "
-        "guess, or reuse a project_id from a different conversation.\n\n"
+        "guess, or reuse a project_id from a different conversation. For "
+        f"write_file/edit_file, always use a path under 'backend/sandbox_project/{project_id}/' "
+        f"(e.g. 'backend/sandbox_project/{project_id}/main.py') — never write directly to "
+        "the project root or anywhere in the Anvil source tree. This keeps every project's "
+        "generated files in their own folder, which is what the embedded VS Code tab "
+        "opens scoped to.\n\n"
         if project_id
         else ""
     )
@@ -313,9 +318,8 @@ def _build_instruction(ctx) -> str:
         "citing that basis. Do not invent levels for categories you have no signal "
         "for, and never re-interrogate after this one question — from then on, only "
         "update when the conversation shows you something new. Apart from this single "
-        "question, none of the skill bookkeeping needs to appear in your reply text "
-        "(see TESTING MODE below) — the tool call itself is what matters, not "
-        "narrating it.\n"
+        "question, none of the skill bookkeeping needs to appear in your reply text — "
+        "the tool call itself is what matters, not narrating it.\n"
         "Work the build as a guided sequence, not a one-shot. A hardware project "
         "flows through the same stages as the milestones above: Project Setup -> CAD "
         "Design -> Wiring -> Firmware & Code -> Slicing & Printing -> Review & "
@@ -328,12 +332,13 @@ def _build_instruction(ctx) -> str:
         "calibration question above before moving on to the technical steps.\n\n"
         "Before destructive actions (writing files, slicing, printing, exporting), "
         "ask the user for approval unless they have explicitly told you to proceed.\n\n"
-        "TESTING MODE: keep every reply short — a sentence or two plus any tool "
-        "results, no more. This limits your reply TEXT only, not your tool calls — "
-        "still call every state tool above exactly as often as instructed (especially "
-        "record_skill_observation/set_skill_level, which should fire on most turns), "
-        "just don't narrate having done so. We are iterating locally and paying for "
-        "output tokens; do not pad responses with restatements, summaries, or filler."
+        "Code you write via write_file/edit_file must be complete and working, not "
+        "a short sketch — implement every module/function the request implies with "
+        "real logic (parsing, error handling, hardware init, timing), never a '# "
+        "TODO' or a stub that just does 'pass' instead of the actual behavior. Match "
+        "the request's real scope: a described multi-part system (e.g. firmware plus "
+        "a ground station) can easily need several hundred lines per file to actually "
+        "work."
     )
 
 

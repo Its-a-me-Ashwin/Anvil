@@ -175,6 +175,32 @@ def _projects_collection() -> firestore.AsyncCollectionReference:
     return _firestore_client().collection("projects")
 
 
+def _project_sandbox_dir(project_id: str) -> Path:
+    """Every project's generated files live under their own subfolder of
+    backend/sandbox_project/ — the same root the CAD and animation adapters
+    already use (backend/sandbox_project/cad_output/, .../animation_output/)
+    — rather than scattered across the whole filesystem-tool root. That's
+    what lets the embedded VS Code tab open scoped to just this project (see
+    buildVsCodeOpenUrl's `workspace` param) instead of the whole Anvil repo."""
+    d = BACKEND_DIR / "sandbox_project" / project_id
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _write_project_workspace_file(project_id: str, project_name: str) -> Path:
+    """The sandbox folder is physically named after the stable project id
+    (names can collide, contain characters invalid on disk, or get
+    auto-renamed after the first turn) — a .code-workspace file is what lets
+    the embedded VS Code tab display the project's actual name instead of
+    that id, without needing to rename anything on disk."""
+    sandbox_dir = _project_sandbox_dir(project_id)
+    workspace_file = BACKEND_DIR / "sandbox_project" / f"{project_id}.code-workspace"
+    workspace_file.write_text(
+        json.dumps({"folders": [{"path": str(sandbox_dir), "name": project_name}]})
+    )
+    return workspace_file
+
+
 # -----------------------------------------------------------------------------
 # Health
 # -----------------------------------------------------------------------------
@@ -608,6 +634,7 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingRes
         session_id = session.id
         await doc_ref.update({"session_id": session_id})
 
+    _write_project_workspace_file(project_id, project.get("name") or "New Project")
     content = types.Content(role="user", parts=[types.Part(text=req.message)])
 
     # Streamed as Server-Sent Events so the frontend can show each tool call
@@ -705,6 +732,8 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingRes
         if grounding_sources:
             update["sources"] = _merge_sources(project.get("sources") or [], grounding_sources)
         await doc_ref.update(update)
+        if project_name != (project.get("name") or "New Project"):
+            _write_project_workspace_file(project_id, project_name)
 
         yield _sse(
             "done",
