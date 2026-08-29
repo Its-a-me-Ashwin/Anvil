@@ -13,14 +13,21 @@ statement is a separate top-level field via set_project_objective, matching
 the "Objective" panel in the UI which is one paragraph, not a list.
 """
 
+import io
 import os
 import re
 import uuid
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 from dotenv import load_dotenv
 from google.cloud import firestore
+from pypdf import PdfReader
+
+from adapters.datasheet.adapter import find_datasheet, looks_electronic
+
+_MAX_DOCUMENT_CHARS = 20000
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
@@ -77,11 +84,16 @@ def read_project_objective(project_id: str) -> dict:
 # Inventory
 # ---------------------------------------------------------------------------
 
-def add_inventory_item(
+async def add_inventory_item(
     project_id: str, name: str, quantity: int, status: str = "available"
 ) -> dict:
     """Add a new inventory item. status is a free-form label, e.g.
-    'available', 'low', 'needed'."""
+    'available', 'low', 'needed'. If name looks like a specific electronics
+    part (has a model number, e.g. 'BME280' or a motor/sensor/module name),
+    this also searches Adafruit's Learn system for its datasheet and
+    records it as a data source automatically — no separate step needed.
+    The returned 'datasheet' field is that result (title/url), or null if
+    none was found; mention it in your reply if present."""
     ref = _subcollection(project_id, "inventory").document()
     data = {
         "name": name,
@@ -91,7 +103,17 @@ def add_inventory_item(
         "updated_at": _now(),
     }
     ref.set(data)
-    return {"id": ref.id, **data}
+
+    datasheet = None
+    if looks_electronic(name):
+        try:
+            datasheet = await find_datasheet(name)
+            if datasheet:
+                add_data_source(project_id, title=f"{name} Datasheet (Adafruit)", url=datasheet["url"], type="pdf")
+        except Exception:
+            datasheet = None  # best-effort enrichment; never fail the inventory add over this
+
+    return {"id": ref.id, **data, "datasheet": datasheet}
 
 
 def read_inventory(project_id: str) -> list[dict]:
@@ -207,35 +229,74 @@ def remove_objective(project_id: str, objective_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Data sources — the agent can populate these from its own knowledge
-# (title + link), no fetching/verification required.
+# Data sources — the agent can populate these from its own knowledge (title
+# + link), no fetching/verification required. Lives in the project doc's
+# `sources` array field, not a subcollection — the same field Google Search
+# grounding writes to (see server.py's _merge_sources) and the one the Data
+# Sources panel actually renders, so anything added here shows up right
+# alongside grounding hits instead of a separate, invisible store. Deduped
+# by url, its only stable identifier (there's no separate id field).
 # ---------------------------------------------------------------------------
 
 def add_data_source(project_id: str, title: str, url: str, type: str = "link") -> dict:
     """Add a reference data source. type is a free-form label the UI can
-    badge, e.g. 'PDF', 'YouTube', 'CAD', 'Repo', 'link'."""
-    ref = _subcollection(project_id, "data_sources").document()
-    data = {
-        "title": title,
-        "url": url,
-        "type": type,
-        "source": "agent",
-        "created_at": _now(),
-    }
-    ref.set(data)
-    return {"id": ref.id, **data}
+    badge, e.g. 'pdf', 'youtube', 'web'. No-ops (returns the existing entry)
+    if a source with this exact url is already recorded."""
+    ref = _project_ref(project_id)
+    existing = (ref.get().to_dict() or {}).get("sources", [])
+    match = next((s for s in existing if s.get("url") == url), None)
+    if match:
+        return match
+    source = {"type": type, "title": title, "url": url, "added_at": _now(), "domain": None}
+    ref.set({"sources": existing + [source], "updated_at": _now()}, merge=True)
+    return source
 
 
 def read_data_sources(project_id: str) -> list[dict]:
-    return [
-        {"id": d.id, **d.to_dict()}
-        for d in _subcollection(project_id, "data_sources").stream()
-    ]
+    doc = _project_ref(project_id).get()
+    return (doc.to_dict() or {}).get("sources", [])
 
 
-def remove_data_source(project_id: str, source_id: str) -> dict:
-    _subcollection(project_id, "data_sources").document(source_id).delete()
-    return {"id": source_id, "removed": True}
+def remove_data_source(project_id: str, url: str) -> dict:
+    """Remove a data source by its url — the only stable identifier a
+    source has."""
+    ref = _project_ref(project_id)
+    existing = (ref.get().to_dict() or {}).get("sources", [])
+    remaining = [s for s in existing if s.get("url") != url]
+    ref.set({"sources": remaining, "updated_at": _now()}, merge=True)
+    return {"url": url, "removed": True}
+
+
+def list_documents(project_id: str) -> list[dict]:
+    """List the project's data sources (title, url, type) — check this
+    before answering a question that might be covered by one of them. If
+    nothing here looks relevant enough, search the web instead."""
+    return read_data_sources(project_id)
+
+
+def read_document(url: str) -> dict:
+    """Fetch a document's actual text content by its url (from
+    list_documents) so you can answer using what it really says, not just
+    its title. Works for PDFs and plain web pages. Long documents are
+    truncated (see 'truncated')."""
+    if not url.lower().startswith(("http://", "https://")):
+        raise ValueError("Only http(s) URLs are supported")
+
+    resp = httpx.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20.0, follow_redirects=True)
+    resp.raise_for_status()
+
+    if "pdf" in resp.headers.get("content-type", "").lower() or url.lower().split("?")[0].endswith(".pdf"):
+        reader = PdfReader(io.BytesIO(resp.content))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    else:
+        text = re.sub(r"<[^>]+>", " ", resp.text)
+
+    text = re.sub(r"\s+", " ", text).strip()
+    return {
+        "url": url,
+        "text": text[:_MAX_DOCUMENT_CHARS],
+        "truncated": len(text) > _MAX_DOCUMENT_CHARS,
+    }
 
 
 # ---------------------------------------------------------------------------

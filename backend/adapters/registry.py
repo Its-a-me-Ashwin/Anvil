@@ -104,6 +104,19 @@ ADAPTERS: list[AdapterEntry] = [
         status="testing",
     ),
     AdapterEntry(
+        name="datasheet",
+        description=(
+            "Look up a datasheet for a specific electronics part on Adafruit's "
+            "Learn system — no search API or Gemini call, just Adafruit's own "
+            "public sitemap and pages. add_inventory_item already calls this "
+            "automatically for electronics-sounding items; this tool is for "
+            "looking one up on demand outside of adding inventory."
+        ),
+        backing="custom",
+        scope=["find_datasheet"],
+        status="testing",
+    ),
+    AdapterEntry(
         name="state",
         description=(
             "Firestore-backed project state: objective, constraints, inventory, "
@@ -132,6 +145,8 @@ ADAPTERS: list[AdapterEntry] = [
             "add_data_source",
             "read_data_sources",
             "remove_data_source",
+            "list_documents",
+            "read_document",
             "record_skill_observation",
             "set_skill_level",
             "read_skills",

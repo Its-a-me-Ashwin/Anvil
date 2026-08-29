@@ -53,6 +53,7 @@ _CUSTOM_ADAPTERS: dict[str, str] = {
     "state": "adapters.state.adapter",
     "animation": "adapters.animation.adapter",
     "youtube_search": "adapters.youtube_search.adapter",
+    "datasheet": "adapters.datasheet.adapter",
 }
 
 
@@ -179,6 +180,12 @@ def _build_instruction(ctx) -> str:
         "automatically — no separate step needed), so don't reach for it by "
         "default. Whichever tool you use, call it directly — no need to ask for "
         "permission first.\n\n"
+        "Before answering a factual/technical question (specs, wiring, how a part "
+        "behaves), call list_documents to see what's already in this project's Data "
+        "Sources. If one is clearly relevant, call read_document on its url and "
+        "answer from that instead of your own general knowledge. If none are "
+        "relevant enough, or list_documents comes back empty, fall back to a web "
+        "search (Google Search) instead of guessing.\n\n"
         "CAD (build123d, via add_box/add_cylinder/add_tube/add_sphere/add_cone and "
         "friends): these are primitives, not a modeling shortcut — real parts are "
         "almost always a composition of several of them, not one shape. Never stop "
@@ -226,8 +233,10 @@ def _build_instruction(ctx) -> str:
         "loosens a locked requirement or tightens a flexible one, call "
         "update_constraint on the existing one rather than adding a duplicate. Remove "
         "a constraint with remove_constraint if it no longer applies.\n"
-        "- Parts, materials, or components the user has or needs -> add_inventory_item. "
-        "Update quantity/status with update_inventory as it changes; remove_inventory_item "
+        "- Parts, materials, or components the user has or needs -> add_inventory_item. For "
+        "an electronics part, this already auto-attaches its Adafruit datasheet to Data "
+        "Sources for you (check the returned 'datasheet' field) — don't also search for it "
+        "yourself. Update quantity/status with update_inventory as it changes; remove_inventory_item "
         "if something is no longer relevant.\n"
         "- Concrete milestones/tasks (e.g. 'CAD Design', 'Parts Sourcing') -> add_objective. "
         "Mark one done with mark_objective_done when it's actually finished, and uncheck it "

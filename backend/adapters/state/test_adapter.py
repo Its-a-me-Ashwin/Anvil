@@ -7,6 +7,7 @@ entity type: objective, inventory, constraints, objectives (progress),
 data sources, and decisions.
 """
 
+import asyncio
 import os
 import sys
 import uuid
@@ -50,7 +51,7 @@ def _project_id() -> str:
     return os.environ.get("GOOGLE_CLOUD_PROJECT", "test-project")
 
 
-def main():
+async def main():
     if not _has_env():
         print("SKIP: state adapter test requires GOOGLE_CLOUD_PROJECT or FIRESTORE_EMULATOR_HOST.")
         print("Set one in backend/.env and run again.")
@@ -77,7 +78,7 @@ def main():
 
         # -- Inventory --------------------------------------------------------
         print("\n-- add_inventory_item --")
-        item = add_inventory_item(project, "5010 BLDC Motor", quantity=1, status="available")
+        item = await add_inventory_item(project, "5010 BLDC Motor", quantity=1, status="available")
         item_id = item["id"]
         assert item["quantity"] == 1
         print(item)
@@ -157,18 +158,18 @@ def main():
         # -- Data sources -------------------------------------------------------
         print("\n-- add_data_source --")
         ds = add_data_source(project, "AS5600 Datasheet", "https://ams.com/as5600", type="PDF")
-        source_id = ds["id"]
+        source_url = ds["url"]
         assert ds["type"] == "PDF"
         print(ds)
 
         print("\n-- read_data_sources --")
         sources = read_data_sources(project)
-        assert any(x["id"] == source_id for x in sources)
+        assert any(x["url"] == source_url for x in sources)
         print(f"{len(sources)} source(s)")
 
         print("\n-- remove_data_source --")
-        remove_data_source(project, source_id)
-        assert not any(x["id"] == source_id for x in read_data_sources(project))
+        remove_data_source(project, source_url)
+        assert not any(x["url"] == source_url for x in read_data_sources(project))
         print("removed")
 
         # -- Decisions ----------------------------------------------------------
@@ -192,7 +193,7 @@ def main():
         print("\n-- read_project_summary --")
         # Re-seed one of each so the summary isn't all-empty after cleanup above.
         add_constraint(project, "Motor: 5010 BLDC", locked=True)
-        add_inventory_item(project, "608 Bearing", quantity=4)
+        await add_inventory_item(project, "608 Bearing", quantity=4)
         add_objective(project, "Parts Sourcing")
         summary = read_project_summary(project)
         assert summary["objective"] == "Revised objective"
@@ -218,4 +219,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
