@@ -41,7 +41,7 @@ from adapters.animation.adapter import animation_path
 from adapters.cad.assembly import Assembly
 from adapters.circuit.adapter import read_wiring_diagram
 from adapters.filesystem.adapter import PROJECT_DIR
-from adapters.state.adapter import read_project_summary
+from adapters.state.adapter import read_project_summary, remove_skill_statement
 from workers import vision as vision_worker
 
 logging.basicConfig(level=logging.INFO)
@@ -516,6 +516,17 @@ async def get_project_state(project_id: str) -> dict:
     # with the agent's FunctionTools) — run it off the event loop so a slow
     # Firestore round-trip doesn't block other requests.
     return await asyncio.to_thread(read_project_summary, project_id)
+
+
+@app.delete("/projects/{project_id}/skills/{category}/statements/{statement_id}")
+async def delete_skill_statement(project_id: str, category: str, statement_id: str) -> dict:
+    """Direct user-initiated delete from the Memory tab — bypasses the agent
+    entirely, unlike every other state entity, so the user always has the
+    final say over what's recorded about them."""
+    try:
+        return await asyncio.to_thread(remove_skill_statement, project_id, category, statement_id)
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @app.get("/projects/{project_id}/cad/meta")

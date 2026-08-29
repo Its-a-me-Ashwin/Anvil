@@ -107,8 +107,9 @@ ADAPTERS: list[AdapterEntry] = [
         name="state",
         description=(
             "Firestore-backed project state: objective, constraints, inventory, "
-            "progress (objectives), decisions, data sources, artifacts. Every "
-            "entity that can be added can also be updated/toggled and removed."
+            "progress (objectives), decisions, data sources, the user's skill "
+            "profile, artifacts. Every entity that can be added can also be "
+            "updated/toggled and removed."
         ),
         backing="custom",
         scope=[
@@ -131,6 +132,10 @@ ADAPTERS: list[AdapterEntry] = [
             "add_data_source",
             "read_data_sources",
             "remove_data_source",
+            "record_skill_observation",
+            "set_skill_level",
+            "read_skills",
+            "remove_skill_statement",
             "record_decision",
             "approve_decision",
             "read_decisions",

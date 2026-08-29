@@ -85,6 +85,20 @@ export interface DataSource {
   created_at?: string;
 }
 
+export interface SkillStatement {
+  id: string;
+  text: string;
+  created_at?: string;
+}
+
+export interface SkillCategoryState {
+  id: string;
+  category: string;
+  level: number;
+  statements: SkillStatement[];
+  updated_at?: string;
+}
+
 export interface ProjectState {
   project_id: string;
   objective: string | null;
@@ -94,6 +108,7 @@ export interface ProjectState {
   objectives: ObjectiveItem[];
   decisions: Decision[];
   data_sources: DataSource[];
+  skills: SkillCategoryState[];
   artifacts: unknown[];
 }
 
@@ -159,4 +174,16 @@ export async function addSource(projectId: string, item: SourceItem): Promise<So
     body: JSON.stringify(item),
   });
   return handleJson<SourceItem>(res);
+}
+
+export async function removeSkillStatement(
+  projectId: string,
+  category: string,
+  statementId: string
+): Promise<SkillCategoryState> {
+  const res = await fetch(
+    `${API_BASE}/projects/${projectId}/skills/${encodeURIComponent(category)}/statements/${encodeURIComponent(statementId)}`,
+    { method: 'DELETE' }
+  );
+  return handleJson<SkillCategoryState>(res);
 }
