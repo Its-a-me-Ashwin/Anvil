@@ -41,6 +41,7 @@ from adapters.animation.adapter import animation_path
 from adapters.cad.assembly import Assembly
 from adapters.circuit.adapter import read_wiring_diagram
 from adapters.filesystem.adapter import PROJECT_DIR
+from adapters.music.adapter import music_path
 from adapters.state.adapter import read_project_summary
 from workers import vision as vision_worker
 
@@ -561,6 +562,22 @@ async def get_project_animation(project_id: str, filename: str) -> FileResponse:
     if not path.exists():
         raise HTTPException(status_code=404, detail="Animation not found")
     return FileResponse(path, media_type="video/mp4", filename=path.name)
+
+
+@app.get("/projects/{project_id}/music/{filename}", response_model=None)
+async def get_project_music(project_id: str, filename: str) -> FileResponse:
+    """Serve a track generate_soundtrack/score_animation just wrote to disk.
+    generate_soundtrack's own output is a standalone .mp3; score_animation's
+    is a .mp4 (the source animation with that track muxed in) — same
+    directory, so one route serves both, picking media_type off the suffix."""
+    try:
+        path = music_path(project_id, filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Track not found")
+    media_type = "video/mp4" if path.suffix == ".mp4" else "audio/mpeg"
+    return FileResponse(path, media_type=media_type, filename=path.name)
 
 
 @app.get("/workspace/resolve")

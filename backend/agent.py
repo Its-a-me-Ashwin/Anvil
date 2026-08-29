@@ -53,6 +53,7 @@ _CUSTOM_ADAPTERS: dict[str, str] = {
     "state": "adapters.state.adapter",
     "animation": "adapters.animation.adapter",
     "youtube_search": "adapters.youtube_search.adapter",
+    "music": "adapters.music.adapter",
 }
 
 
@@ -163,8 +164,9 @@ def _build_instruction(ctx) -> str:
         "files in the active project directory, search the web with Google Search, "
         "build parametric CAD assemblies, draw wiring diagrams, send models to a "
         "3D printer via the Workshop Bridge, find an existing YouTube tutorial "
-        "with find_tutorial_video, or generate a short explainer animation with "
-        "generate_animation.\n\n"
+        "with find_tutorial_video, generate a short explainer animation with "
+        "generate_animation, or generate a short background music track with "
+        "generate_soundtrack/score_animation.\n\n"
         + project_id_line +
         "For any 'how do I...', demonstration, or show-me-how question, call "
         "find_tutorial_video first, not generate_animation — it's free and a "
@@ -177,6 +179,15 @@ def _build_instruction(ctx) -> str:
         "difference between A and B, it can show A, then show B. It costs real "
         "money to render (Veo), so don't reach for it by default. Whichever one "
         "you use, call it directly — no need to ask for permission first.\n\n"
+        "Music (Lyria, via generate_soundtrack/score_animation): only reach for "
+        "these when the user actually asks for music, a soundtrack, background "
+        "audio, or to add sound/atmosphere to something — never automatically "
+        "after generate_animation. generate_soundtrack makes a standalone "
+        "instrumental track from a short mood/genre description (e.g. 'calm "
+        "ambient synth', 'upbeat minimal techno'); score_animation instead adds "
+        "one directly onto an animation generate_animation already produced, "
+        "replacing that clip's own generated audio. Costs real money to render, "
+        "same caveat as generate_animation.\n\n"
         "CAD (build123d, via add_box/add_cylinder/add_tube/add_sphere/add_cone and "
         "friends): these are primitives, not a modeling shortcut — real parts are "
         "almost always a composition of several of them, not one shape. Never stop "
