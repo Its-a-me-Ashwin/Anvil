@@ -34,7 +34,9 @@
     "pdfjs-dist": "^4.6.82",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.12.3",
+    "remark-gfm": "^4.0.1",
     "three": "^0.169.0",
     "zustand": "^5.0.15"
   }

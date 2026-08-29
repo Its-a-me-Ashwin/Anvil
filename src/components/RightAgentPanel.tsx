@@ -10,6 +10,7 @@ import { getWiringDiagram } from '../services/circuitService';
 import { animationUrl } from '../services/animationService';
 import ToolCallGroup from './ToolCallGroup';
 import MemoryPanel from './MemoryPanel';
+import MarkdownMessage from './MarkdownMessage';
 
 const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
 const CIRCUIT_WRITE_TOOLS = new Set(['create_wiring_diagram', 'update_wiring_diagram']);
@@ -394,7 +395,7 @@ export default function RightAgentPanel() {
                 {msg.tool_calls && msg.tool_calls.length > 0 && (
                   <ToolCallGroup calls={msg.tool_calls} streaming={msg.streaming} />
                 )}
-                {msg.text && <div>{msg.text}</div>}
+                {msg.text && <MarkdownMessage text={msg.text} />}
                 {msg.streaming && !msg.text && (!msg.tool_calls || msg.tool_calls.length === 0) && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-anvil-muted" />
                 )}
