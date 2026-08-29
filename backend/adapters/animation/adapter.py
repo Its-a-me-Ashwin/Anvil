@@ -2,13 +2,20 @@
 
 Generates short, simple explainer animations — e.g. "what's the difference
 between A and B" gets a clip that shows A, then shows B — via Veo (Gemini
-API).
+API), with a matching instrumental soundtrack from Lyria muxed in
+automatically (see adapters/music/adapter.py). generate_animation is the
+only video-generation tool exposed to the agent, and it always returns one
+finished, already-scored clip — there is no separate "add music to this"
+step the agent has to remember to invoke.
 
 Uses GEMINI_API_KEY (same key as the rest of the app) — Veo is served from
 the same Gemini Developer API, no separate key. If GEMINI_API_KEY is unset,
 `generate_animation` falls back to a local mock MP4 via ffmpeg instead of
 calling Veo, so the tool-call and center-canvas plumbing can still be
-exercised without spending anything.
+exercised without spending anything. If Lyria/muxing fails for any reason,
+generate_animation logs a warning and returns the silent Veo/mock clip
+rather than failing the whole call — a music problem shouldn't take down
+animation generation, which worked fine on its own before this existed.
 
 Animations live in backend/sandbox_project/animation_output/<project>/,
 mirroring the per-project layout the CAD adapter uses for its own output
@@ -16,6 +23,7 @@ mirroring the per-project layout the CAD adapter uses for its own output
 """
 
 import asyncio
+import logging
 import os
 import shutil
 import subprocess
@@ -24,6 +32,10 @@ from pathlib import Path
 
 from google import genai
 from google.genai import types as genai_types
+
+from adapters.music.adapter import add_soundtrack
+
+logger = logging.getLogger(__name__)
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = BACKEND_DIR / "sandbox_project" / "animation_output"
@@ -139,7 +151,8 @@ async def _call_veo(description: str, out_path: Path) -> None:
 
 async def generate_animation(project_id: str, description: str) -> dict:
     """Generate a short, simple explainer animation (e.g. showing A, then B,
-    for a comparison question)."""
+    for a comparison question), with a matching instrumental soundtrack
+    included automatically."""
     filename = f"{uuid.uuid4().hex}.mp4"
     out_path = _project_dir(project_id) / filename
 
@@ -149,10 +162,21 @@ async def generate_animation(project_id: str, description: str) -> dict:
     else:
         _generate_mock_video(out_path)
 
+    scored = False
+    try:
+        scored_path = await add_soundtrack(out_path, description)
+        out_path.unlink(missing_ok=True)
+        out_path = scored_path
+        filename = out_path.name
+        scored = True
+    except Exception:
+        logger.warning("add_soundtrack failed; returning animation without music", exc_info=True)
+
     return {
         "status": "ready",
         "description": description,
         "project_id": project_id,
         "filename": filename,
         "source": "veo" if api_key else "mock",
+        "scored": scored,
     }
