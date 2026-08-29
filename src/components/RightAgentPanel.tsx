@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Mic, MicOff, Bot, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore';
-import { chatProject, getSession, type ToolCall } from '../services/agentService';
+import { chatProjectStream, getSession, type ToolCall } from '../services/agentService';
 import { useActivityStore } from '../store/activityStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { resolveWorkspacePath } from '../services/fileService';
 import { buildVsCodeOpenUrl } from '../lib/vscodeLink';
 import { getWiringDiagram } from '../services/circuitService';
 import { animationUrl } from '../services/animationService';
-import ToolCallCard from './ToolCallCard';
+import ToolCallGroup from './ToolCallGroup';
 import MemoryPanel from './MemoryPanel';
 
 const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
@@ -157,7 +157,20 @@ export default function RightAgentPanel() {
   const recognitionRef = useRef<any>(null);
   const baseTextRef = useRef('');
 
-  const { messages, currentProject, setCurrentProject, addMessage, refreshProjectState, loadSources, projectState } = useProjectStore();
+  const {
+    messages,
+    currentProject,
+    setCurrentProject,
+    addMessage,
+    beginAssistantMessage,
+    appendToolCall,
+    updateToolCallResult,
+    appendAssistantText,
+    finishAssistantMessage,
+    refreshProjectState,
+    loadSources,
+    projectState,
+  } = useProjectStore();
   const { activities, clearActivities } = useActivityStore();
 
   useEffect(() => {
@@ -202,11 +215,16 @@ export default function RightAgentPanel() {
     addMessage('user', text);
     setInput('');
     setSending(true);
+    beginAssistantMessage();
 
     try {
       const project = currentProject;
-      const data = await chatProject(project.id, text);
-      addMessage('assistant', data.response, data.tool_calls);
+      const data = await chatProjectStream(project.id, text, {
+        onToolCall: appendToolCall,
+        onToolResult: updateToolCallResult,
+        onText: appendAssistantText,
+      });
+      finishAssistantMessage({ text: data.response, tool_calls: data.tool_calls });
       openTouchedFiles(data.tool_calls);
       openCircuitViewer(data.tool_calls, project.id);
       openAnimationViewer(data.tool_calls, project.id);
@@ -225,7 +243,7 @@ export default function RightAgentPanel() {
       // server.py) — just pick up whatever it wrote.
       loadSources(project.id);
     } catch (err: any) {
-      addMessage('assistant', `Error: ${err?.message || 'Failed to reach agent.'}`);
+      finishAssistantMessage({ text: `Error: ${err?.message || 'Failed to reach agent.'}` });
     } finally {
       setSending(false);
     }
@@ -354,13 +372,12 @@ export default function RightAgentPanel() {
                   <span className="font-medium text-anvil-accent">Anvil</span>
                 </div>
                 {msg.tool_calls && msg.tool_calls.length > 0 && (
-                  <div className="space-y-1.5 mb-2">
-                    {msg.tool_calls.map((call) => (
-                      <ToolCallCard key={call.id} call={call} />
-                    ))}
-                  </div>
+                  <ToolCallGroup calls={msg.tool_calls} streaming={msg.streaming} />
                 )}
                 {msg.text && <div>{msg.text}</div>}
+                {msg.streaming && !msg.text && (!msg.tool_calls || msg.tool_calls.length === 0) && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-anvil-muted" />
+                )}
               </div>
             )
           )}

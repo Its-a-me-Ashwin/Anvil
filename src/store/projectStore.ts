@@ -14,6 +14,10 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | string;
   text: string;
   tool_calls?: ToolCall[];
+  // True only while this message's turn is still streaming in — lets the UI
+  // auto-expand its tool calls as they run and auto-collapse them once the
+  // turn finishes. Absent (or false) for messages loaded from history.
+  streaming?: boolean;
 }
 
 interface ProjectStoreState {
@@ -25,6 +29,11 @@ interface ProjectStoreState {
   setCurrentProject: (project: Project | null, messages?: ChatMessage[]) => void;
   setSources: (sources: SourceItem[]) => void;
   addMessage: (role: ChatMessage['role'], text: string, tool_calls?: ToolCall[]) => void;
+  beginAssistantMessage: () => void;
+  appendToolCall: (call: ToolCall) => void;
+  updateToolCallResult: (id: string, result: unknown) => void;
+  appendAssistantText: (text: string) => void;
+  finishAssistantMessage: (patch: { text?: string; tool_calls?: ToolCall[] }) => void;
   loadProjects: () => Promise<void>;
   clearCurrentProject: () => void;
   refreshProjectState: (projectId: string) => Promise<void>;
@@ -56,6 +65,48 @@ export const useProjectStore = create<ProjectStoreState>((set) => ({
     set((state) => ({
       messages: [...state.messages, tool_calls?.length ? { role, text, tool_calls } : { role, text }],
     })),
+
+  beginAssistantMessage: () =>
+    set((state) => ({
+      messages: [...state.messages, { role: 'assistant', text: '', tool_calls: [], streaming: true }],
+    })),
+
+  appendToolCall: (call) =>
+    set((state) => {
+      if (state.messages.length === 0) return {};
+      const messages = state.messages.slice();
+      const last = messages[messages.length - 1];
+      messages[messages.length - 1] = { ...last, tool_calls: [...(last.tool_calls || []), call] };
+      return { messages };
+    }),
+
+  updateToolCallResult: (id, result) =>
+    set((state) => {
+      if (state.messages.length === 0) return {};
+      const messages = state.messages.slice();
+      const last = messages[messages.length - 1];
+      const tool_calls = (last.tool_calls || []).map((c) => (c.id === id ? { ...c, result } : c));
+      messages[messages.length - 1] = { ...last, tool_calls };
+      return { messages };
+    }),
+
+  appendAssistantText: (text) =>
+    set((state) => {
+      if (state.messages.length === 0) return {};
+      const messages = state.messages.slice();
+      const last = messages[messages.length - 1];
+      messages[messages.length - 1] = { ...last, text: last.text + text };
+      return { messages };
+    }),
+
+  finishAssistantMessage: (patch) =>
+    set((state) => {
+      if (state.messages.length === 0) return {};
+      const messages = state.messages.slice();
+      const last = messages[messages.length - 1];
+      messages[messages.length - 1] = { ...last, ...patch, streaming: false };
+      return { messages };
+    }),
 
   loadProjects: async () => {
     const { listProjects } = await import('../services/agentService');

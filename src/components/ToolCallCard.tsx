@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronRight, Wrench, CheckCircle2, Loader2 } from 'lucide-react';
 import type { ToolCall } from '../services/agentService';
 
@@ -25,9 +25,18 @@ function CodeBlock({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-export default function ToolCallCard({ call }: { call: ToolCall }) {
-  const [open, setOpen] = useState(false);
+export default function ToolCallCard({ call, autoManage }: { call: ToolCall; autoManage?: boolean }) {
   const hasResult = call.result !== null && call.result !== undefined;
+  // While live (autoManage), the card opens as soon as the call starts and
+  // collapses itself the moment its result comes in, so the user can watch
+  // the current step without having to click through each one.
+  const [open, setOpen] = useState(autoManage ? !hasResult : false);
+  const hadResult = useRef(hasResult);
+
+  useEffect(() => {
+    if (autoManage && !hadResult.current && hasResult) setOpen(false);
+    hadResult.current = hasResult;
+  }, [autoManage, hasResult]);
 
   return (
     <div className="rounded-lg border border-anvil-border bg-anvil-bg/60 overflow-hidden">

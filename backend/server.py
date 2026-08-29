@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
 import logging
 import os
 import re
@@ -25,7 +26,7 @@ import dotenv
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from google.adk import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import Client, types
@@ -89,12 +90,6 @@ class ToolCallInfo(BaseModel):
     name: str
     args: dict
     result: object = None
-
-
-class ProjectChatResponse(BaseModel):
-    response: str
-    project_name: str
-    tool_calls: list[ToolCallInfo] = []
 
 
 class SourceItem(BaseModel):
@@ -586,8 +581,12 @@ async def resolve_workspace_path(path: str) -> dict:
     return {"path": path, "abs_path": abs_path}
 
 
-@app.post("/projects/{project_id}/chat", response_model=ProjectChatResponse)
-async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatResponse:
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@app.post("/projects/{project_id}/chat")
+async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingResponse:
     r = _runner()
     user_id = "default"
     col = _projects_collection()
@@ -609,77 +608,94 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
         await doc_ref.update({"session_id": session_id})
 
     content = types.Content(role="user", parts=[types.Part(text=req.message)])
-    response_parts: list[str] = []
-    tool_calls: dict[str, ToolCallInfo] = {}
-    tool_call_order: list[str] = []
-    grounding_sources: list[dict] = []
 
-    async for event in r.run_async(
-        user_id=user_id,
-        session_id=session_id,
-        new_message=content,
-    ):
-        grounding_sources.extend(_grounding_sources(event))
-        if not event.content:
-            continue
-        for part in event.content.parts:
-            if getattr(part, "function_call", None):
-                fc = part.function_call
-                call_id = fc.id or fc.name
-                tool_calls[call_id] = ToolCallInfo(id=call_id, name=fc.name, args=dict(fc.args or {}))
-                tool_call_order.append(call_id)
-                logger.info("tool_call: %s(%s)", fc.name, dict(fc.args or {}))
-            if getattr(part, "function_response", None):
-                fr = part.function_response
-                call_id = fr.id or fr.name
-                if call_id in tool_calls:
-                    tool_calls[call_id].result = fr.response
-                logger.info("tool_result: %s -> %s", fr.name, fr.response)
-        if event.is_final_response():
+    # Streamed as Server-Sent Events so the frontend can show each tool call
+    # (and its result) the moment it happens, rather than the whole turn's
+    # worth of tool calls appearing at once when the agent finishes — see
+    # RightAgentPanel's streamChatProject consumer.
+    async def event_stream() -> AsyncGenerator[str, None]:
+        response_parts: list[str] = []
+        tool_calls: dict[str, ToolCallInfo] = {}
+        tool_call_order: list[str] = []
+        grounding_sources: list[dict] = []
+
+        async for event in r.run_async(
+            user_id=user_id,
+            session_id=session_id,
+            new_message=content,
+        ):
+            grounding_sources.extend(_grounding_sources(event))
+            if not event.content:
+                continue
             for part in event.content.parts:
-                if part.text:
-                    response_parts.append(part.text)
+                if getattr(part, "function_call", None):
+                    fc = part.function_call
+                    call_id = fc.id or fc.name
+                    info = ToolCallInfo(id=call_id, name=fc.name, args=dict(fc.args or {}))
+                    tool_calls[call_id] = info
+                    tool_call_order.append(call_id)
+                    logger.info("tool_call: %s(%s)", fc.name, dict(fc.args or {}))
+                    yield _sse("tool_call", info.model_dump())
+                if getattr(part, "function_response", None):
+                    fr = part.function_response
+                    call_id = fr.id or fr.name
+                    if call_id in tool_calls:
+                        tool_calls[call_id].result = fr.response
+                    logger.info("tool_result: %s -> %s", fr.name, fr.response)
+                    yield _sse("tool_result", {"id": call_id, "result": fr.response})
+            if event.is_final_response():
+                for part in event.content.parts:
+                    if part.text:
+                        response_parts.append(part.text)
+                        yield _sse("text", {"text": part.text})
 
-    if grounding_sources:
-        await _enrich_source_titles(grounding_sources)
+        if grounding_sources:
+            await _enrich_source_titles(grounding_sources)
 
-    response_text = "\n".join(response_parts)
-    ordered_tool_calls = [tool_calls[cid] for cid in tool_call_order]
-    project_name = project.get("name") or "New Project"
+        response_text = "\n".join(response_parts)
+        ordered_tool_calls = [tool_calls[cid] for cid in tool_call_order]
+        project_name = project.get("name") or "New Project"
 
-    if project_name in ("New Project", ""):
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if api_key:
-            try:
-                client = Client(api_key=api_key)
-                prompt = (
-                    f"Suggest a short project name (max 4 words) for this chat:\n"
-                    f"User: {req.message}\n"
-                    f"Assistant: {response_text}\n"
-                    "Return only the name."
-                )
-                suggestion = await client.aio.models.generate_content(
-                    model="gemini-flash-lite-latest",
-                    contents=[prompt],
-                )
-                suggested = (suggestion.text or "").strip().strip('"').strip("'")
-                if suggested:
-                    project_name = suggested
-            except Exception as exc:
-                logger.warning("Failed to suggest project name: %s", exc)
+        if project_name in ("New Project", ""):
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if api_key:
+                try:
+                    client = Client(api_key=api_key)
+                    prompt = (
+                        f"Suggest a short project name (max 4 words) for this chat:\n"
+                        f"User: {req.message}\n"
+                        f"Assistant: {response_text}\n"
+                        "Return only the name."
+                    )
+                    suggestion = await client.aio.models.generate_content(
+                        model="gemini-flash-lite-latest",
+                        contents=[prompt],
+                    )
+                    suggested = (suggestion.text or "").strip().strip('"').strip("'")
+                    if suggested:
+                        project_name = suggested
+                except Exception as exc:
+                    logger.warning("Failed to suggest project name: %s", exc)
 
-    update = {
-        "name": project_name,
-        "updated_at": _now(),
-        "session_id": session_id,
-    }
-    if grounding_sources:
-        update["sources"] = _merge_sources(project.get("sources") or [], grounding_sources)
-    await doc_ref.update(update)
+        update = {
+            "name": project_name,
+            "updated_at": _now(),
+            "session_id": session_id,
+        }
+        if grounding_sources:
+            update["sources"] = _merge_sources(project.get("sources") or [], grounding_sources)
+        await doc_ref.update(update)
 
-    return ProjectChatResponse(
-        response=response_text, project_name=project_name, tool_calls=ordered_tool_calls
-    )
+        yield _sse(
+            "done",
+            {
+                "response": response_text,
+                "project_name": project_name,
+                "tool_calls": [tc.model_dump() for tc in ordered_tool_calls],
+            },
+        )
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 # -----------------------------------------------------------------------------
