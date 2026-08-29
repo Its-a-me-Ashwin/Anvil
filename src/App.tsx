@@ -5,6 +5,7 @@ import CenterWorkspace from './components/CenterWorkspace';
 import RightAgentPanel from './components/RightAgentPanel';
 import BottomDataStrip from './components/BottomDataStrip';
 import ResizableHandle from './components/ResizableHandle';
+import PrinterAlertBanner from './components/PrinterAlertBanner';
 
 const MIN_LEFT = 220;
 const MAX_LEFT = 500;
@@ -35,6 +36,7 @@ function App() {
   return (
     <div className="h-screen w-screen flex flex-col bg-anvil-bg text-anvil-text overflow-hidden">
       <TopBar />
+      <PrinterAlertBanner />
 
       <div className="flex-1 flex flex-row min-h-0">
         <div style={{ width: leftWidth, minWidth: MIN_LEFT, maxWidth: MAX_LEFT }} className="bg-anvil-panel flex flex-col">

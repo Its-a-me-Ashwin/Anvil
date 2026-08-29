@@ -1,5 +1,5 @@
 import http from 'node:http';
-import net from 'node:net';
+import tls from 'node:tls';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -85,82 +85,58 @@ function corsHeaders(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
-function bambuCameraUrl(printer) {
-  return `rtsps://bblp:${encodeURIComponent(printer.access_code)}@${printer.ip_address}:322/streaming/live/1`;
-}
+const CAMERA_PORT = 6000;
+const CAMERA_AUTH_PACKET = 0x3000;
 
-async function getCameraPrinter() {
-  const config = await readPrintersConfig();
-  const printers = Object.values(config).filter((printer) => printer?.ip_address && printer?.access_code);
-  for (const printer of printers) {
-    if (await canReachPrinter(printer.ip_address)) return printer;
-  }
-  return null;
-}
+// Bambu's native camera protocol: a raw TLS socket on port 6000 (self-signed
+// cert, not the RTSPS port 322 the old ffmpeg relay used — that never
+// actually worked). Send a 16-byte header + 32-byte username + 32-byte
+// password, then read back a 16-byte frame header (payload size) followed by
+// exactly that many bytes of JPEG. One frame per connection — grab, close,
+// repeat — no persistent relay process to manage.
+function grabCameraFrame(printer) {
+  return new Promise((resolve, reject) => {
+    const socket = tls.connect(
+      { host: printer.ip_address, port: CAMERA_PORT, rejectUnauthorized: false },
+      () => {
+        const username = Buffer.alloc(32);
+        Buffer.from('bblp', 'ascii').copy(username);
+        const password = Buffer.alloc(32);
+        Buffer.from(printer.access_code, 'ascii').copy(password);
 
-function canReachPrinter(host) {
-  return new Promise((resolve) => {
-    const socket = net.createConnection({ host, port: 322 });
-    const finish = (reachable) => {
+        const header = Buffer.alloc(16);
+        header.writeUInt32LE(username.length + password.length, 0); // payload size = 64
+        header.writeUInt32LE(CAMERA_AUTH_PACKET, 4);
+        socket.write(Buffer.concat([header, username, password]));
+      }
+    );
+
+    let buffer = Buffer.alloc(0);
+    let payloadSize = null;
+    let done = false;
+
+    const finish = (err, frame) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
       socket.destroy();
-      resolve(reachable);
+      if (err) reject(err);
+      else resolve(frame);
     };
-    socket.setTimeout(1200);
-    socket.once('connect', () => finish(true));
-    socket.once('timeout', () => finish(false));
-    socket.once('error', () => finish(false));
-  });
-}
 
-async function streamCamera(req, res) {
-  const printer = await getCameraPrinter();
-  if (!printer) {
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: false, error: 'No configured printer camera.' }));
-    return;
-  }
+    const timeout = setTimeout(() => finish(new Error('Timed out waiting for a camera frame')), 10000);
 
-  const ffmpeg = spawn('ffmpeg', [
-    '-loglevel', 'error',
-    '-rw_timeout', '10000000',
-    '-rtsp_transport', 'tcp',
-    '-tls_verify', '0',
-    '-i', bambuCameraUrl(printer),
-    '-an',
-    '-c:v', 'copy',
-    '-f', 'mp4',
-    '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
-    'pipe:1',
-  ], { windowsHide: true });
-
-  let started = false;
-  const startupTimeout = setTimeout(() => {
-    if (started || ffmpeg.killed) return;
-    ffmpeg.kill();
-  }, 12000);
-  ffmpeg.stderr.on('data', (data) => {
-    if (!started && data.toString().trim()) {
-      console.error(`Camera relay: ${data.toString().trim()}`);
-    }
-  });
-  ffmpeg.stdout.once('data', (data) => {
-    started = true;
-    clearTimeout(startupTimeout);
-    res.writeHead(200, { 'Content-Type': 'video/mp4', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
-    res.write(data);
-    ffmpeg.stdout.pipe(res);
-  });
-  ffmpeg.on('close', () => {
-    clearTimeout(startupTimeout);
-    if (!res.headersSent) {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Unable to connect to the printer camera.' }));
-    } else if (!res.writableEnded) {
-      res.end();
-    }
-  });
-  req.on('close', () => {
-    if (!ffmpeg.killed) ffmpeg.kill();
+    socket.on('data', (chunk) => {
+      buffer = Buffer.concat([buffer, chunk]);
+      if (payloadSize === null && buffer.length >= 16) {
+        payloadSize = buffer.readUInt32LE(0);
+      }
+      if (payloadSize !== null && buffer.length >= 16 + payloadSize) {
+        finish(null, buffer.subarray(16, 16 + payloadSize));
+      }
+    });
+    socket.on('error', (err) => finish(err));
+    socket.on('close', () => finish(new Error('Connection closed before a full frame arrived')));
   });
 }
 
@@ -381,14 +357,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.url === '/camera' && req.method === 'GET') {
-      if (!await getCameraPrinter()) return send(404, { success: false, error: 'No configured printer camera.' });
-      send(200, { success: true, url: `http://localhost:${PORT}/camera/stream` });
-      return;
-    }
-
-    if (req.url === '/camera/stream' && req.method === 'GET') {
-      await streamCamera(req, res);
+    if (req.url?.startsWith('/camera/frame') && req.method === 'GET') {
+      const { searchParams } = new URL(req.url, `http://localhost:${PORT}`);
+      const config = await readPrintersConfig();
+      const printer = searchParams.get('printer') ? config[searchParams.get('printer')] : Object.values(config)[0];
+      if (!printer?.ip_address || !printer?.access_code) {
+        send(404, { success: false, error: 'No configured printer camera.' });
+        return;
+      }
+      try {
+        const frame = await grabCameraFrame(printer);
+        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store' });
+        res.end(frame);
+      } catch (err) {
+        send(502, { success: false, error: err.message });
+      }
       return;
     }
 

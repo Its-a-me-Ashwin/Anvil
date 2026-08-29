@@ -74,7 +74,6 @@ Fill in these values:
 GEMINI_API_KEY=your-gemini-key
 GOOGLE_CLOUD_PROJECT=anvil-local          # can be fake when using emulator
 FIRESTORE_EMULATOR_HOST=localhost:8200    # optional; remove to use real Firestore
-VISION_VIDEO_PATH=C:/path/to/video.mp4    # optional; local camera placeholder
 ```
 
 Leave `FIRESTORE_EMULATOR_HOST` empty if you want to use real Firestore with

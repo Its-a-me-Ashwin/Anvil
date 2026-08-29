@@ -1,77 +1,59 @@
-"""Minimal local vision worker using an MP4 file as a camera stream.
+"""Printer camera monitoring via a local Ollama vision model (Gemma).
 
-- Serves the configured MP4 as a video feed endpoint.
-- Can extract a frame and send it to a local Ollama model for analysis.
-- Replace the MP4 path with an RTSP URL later.
+Grabs a live JPEG frame from the printer's camera through the Anvil
+Workshop Bridge's /camera/frame endpoint (the bridge talks to the printer
+directly over Bambu's native camera protocol), then asks Ollama to classify
+the bed/print state as JSON. No local video file, no ffmpeg — the frame is
+always live.
 """
 
 import base64
+import json
 import logging
 import os
-import shutil
-import subprocess
-from pathlib import Path
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-VISION_VIDEO_PATH = os.environ.get("VISION_VIDEO_PATH", "")
+BRIDGE_URL = os.environ.get("ANVIL_BRIDGE_URL", "http://localhost:3001")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("VISION_MODEL", "gemma3:4b")
 
-
-def video_path() -> Path | None:
-    """Return the configured video path if it exists."""
-    if not VISION_VIDEO_PATH:
-        return None
-    p = Path(VISION_VIDEO_PATH)
-    return p if p.is_file() else None
-
-
-def _ffmpeg_bin() -> str:
-    """Find ffmpeg binary, honouring FFMPEG_PATH env var."""
-    env = os.environ.get("FFMPEG_PATH")
-    if env:
-        return env
-    found = shutil.which("ffmpeg")
-    if found:
-        return found
-    raise RuntimeError("ffmpeg not found. Set FFMPEG_PATH or add ffmpeg to PATH.")
+_PROMPT = (
+    "You are monitoring a 3D printer through its camera. Look at this frame "
+    "and respond with ONLY a JSON object with exactly these three boolean "
+    'fields: "isBedEmpty" (true if the print bed is empty/clear, false if '
+    'there is a model or object on it), "isSpaghetti" (true if you see a '
+    'failed print / tangled filament mess, aka "spaghetti", on the bed), '
+    '"isPrinting" (true if the printer appears to be actively printing '
+    "right now)."
+)
 
 
-def extract_frame_bytes(video: Path | str, timestamp: str = "00:00:01") -> bytes:
-    """Extract a single PNG frame from the video using ffmpeg."""
-    cmd = [
-        _ffmpeg_bin(),
-        "-ss", timestamp,
-        "-i", str(video),
-        "-vframes", "1",
-        "-f", "image2pipe",
-        "-vcodec", "png",
-    ]
-    result = subprocess.run(cmd, capture_output=True, check=False)
-    if result.returncode != 0:
-        raise RuntimeError(f"ffmpeg failed: {result.stderr.decode(errors='ignore')[:200]}")
-    return result.stdout
+async def fetch_frame() -> bytes:
+    """Grab one live JPEG frame from the printer's camera via the bridge."""
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(f"{BRIDGE_URL}/camera/frame")
+        resp.raise_for_status()
+        return resp.content
 
 
-async def analyze_frame(prompt: str, timestamp: str = "00:00:01") -> dict:
-    """Send a single video frame to the local Ollama vision model."""
-    video = video_path()
-    if not video:
-        return {"ok": False, "error": "VISION_VIDEO_PATH not set or file missing"}
-
+async def analyze_printer_frame() -> dict:
+    """Fetch a live camera frame and ask the local Ollama vision model to
+    classify the printer's state. Returns {"ok": True, "isBedEmpty": bool,
+    "isSpaghetti": bool, "isPrinting": bool} or {"ok": False, "error": str}."""
     try:
-        frame = extract_frame_bytes(video, timestamp)
-    except RuntimeError as exc:
-        return {"ok": False, "error": str(exc)}
+        frame = await fetch_frame()
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": f"Could not reach printer camera: {exc}"}
 
     image_b64 = base64.b64encode(frame).decode("utf-8")
     payload = {
         "model": OLLAMA_MODEL,
-        "prompt": prompt,
+        "prompt": _PROMPT,
         "images": [image_b64],
+        "format": "json",
         "stream": False,
     }
 
@@ -83,4 +65,14 @@ async def analyze_frame(prompt: str, timestamp: str = "00:00:01") -> dict:
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"Ollama call failed: {exc}"}
 
-    return {"ok": True, "response": data.get("response", "")}
+    try:
+        parsed = json.loads(data.get("response", "{}"))
+    except json.JSONDecodeError:
+        return {"ok": False, "error": "Model did not return valid JSON"}
+
+    return {
+        "ok": True,
+        "isBedEmpty": parsed.get("isBedEmpty"),
+        "isSpaghetti": parsed.get("isSpaghetti"),
+        "isPrinting": parsed.get("isPrinting"),
+    }

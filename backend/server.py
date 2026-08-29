@@ -4,7 +4,7 @@ Provides:
 - chat sessions with session memory via Google ADK
 - project persistence through Firestore when configured
 - project state tools through adapters/registry.py
-- a minimal MP4-based vision feed endpoint
+- printer camera monitoring via a local Ollama vision model
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import dotenv
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from google.adk import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import Client, types
@@ -74,11 +74,6 @@ class ChatResponse(BaseModel):
     session_id: str
     response: str
     tool_calls: list[dict]
-
-
-class AnalyzeRequest(BaseModel):
-    prompt: str = "Describe what you see in this frame."
-    timestamp: str = "00:00:01"
 
 
 class ProjectCreateRequest(BaseModel):
@@ -688,21 +683,15 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> ProjectChatR
 
 
 # -----------------------------------------------------------------------------
-# Vision feed (MP4 placeholder)
+# Printer camera monitoring (Gemma via Ollama)
 # -----------------------------------------------------------------------------
 
 
-@app.get("/vision/feed", response_model=None)
-async def vision_feed() -> StreamingResponse | FileResponse:
-    video = vision_worker.video_path()
-    if not video:
-        raise HTTPException(status_code=503, detail="VISION_VIDEO_PATH not configured")
-    return FileResponse(video, media_type="video/mp4", filename=video.name)
-
-
-@app.post("/vision/analyze")
-async def vision_analyze(req: AnalyzeRequest) -> dict:
-    result = await vision_worker.analyze_frame(req.prompt, req.timestamp)
+@app.post("/vision/monitor")
+async def vision_monitor() -> dict:
+    """Grab a live frame from the printer camera and classify bed/print
+    state. Polled by the frontend's Printer Camera tab every ~1 minute."""
+    result = await vision_worker.analyze_printer_frame()
     if not result.get("ok"):
         raise HTTPException(status_code=503, detail=result.get("error"))
     return result

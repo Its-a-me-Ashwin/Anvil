@@ -54,8 +54,7 @@ cp backend/.env.example backend/.env
 |---|---|---|
 | `GEMINI_API_KEY` | Agent chat | https://aistudio.google.com/app/apikey |
 | `GOOGLE_CLOUD_PROJECT` | Firestore state | Google Cloud console |
-| `VISION_VIDEO_PATH` | MP4 camera stream placeholder | Path to any local `.mp4` |
-| `FFMPEG_PATH` | Vision frame extraction | Optional; `ffmpeg` on PATH is enough |
+| `OLLAMA_URL` / `VISION_MODEL` | Printer camera monitoring | Local Ollama server + `ollama pull gemma3:4b` |
 
 ## Start the whole app
 
@@ -88,13 +87,13 @@ npm run dev
 
 Then open http://localhost:5173.
 
-## Optional: local Ollama for vision
+## Optional: local Ollama for printer camera monitoring
 
 1. Install Ollama: https://ollama.com/download
 2. Pull a vision model: `ollama pull gemma3:4b`
 3. Start the server: `ollama serve`
-4. Set `VISION_VIDEO_PATH` to an MP4 in `backend/.env`
-5. Use `POST /vision/analyze` with a prompt
+4. Open the Printer Camera tab — it polls `POST /vision/monitor` once a
+   minute for isBedEmpty/isSpaghetti/isPrinting while it's open
 
 ## Useful URLs
 

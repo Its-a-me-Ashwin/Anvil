@@ -161,7 +161,6 @@ page.
 |---|---|
 | `GEMINI_API_KEY` | from AI Studio |
 | `GOOGLE_CLOUD_PROJECT` | your project ID |
-| `VISION_VIDEO_PATH` | optional; Cloud Run cannot access local files, leave unset or use Cloud Storage |
 
 Do **not** check `.env` into Git. Cloud Run uses env vars, not the `.env` file.
 

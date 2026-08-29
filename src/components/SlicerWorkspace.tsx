@@ -3,6 +3,7 @@ import { Box, Settings, Send, Layers, Triangle, GripHorizontal, Upload, CheckCir
 import { sliceModel, sendToPrinter, loadPrinterConfig, checkBridgeHealth, type SlicerParams, type PrinterConfig } from '../services/slicerService';
 import { getCadMeta, fetchCadModel } from '../services/cadService';
 import { useProjectStore } from '../store/projectStore';
+import { usePrinterMonitorStore } from '../store/printerMonitorStore';
 import StlViewer from './StlViewer';
 
 const CAD_POLL_MS = 2000;
@@ -136,6 +137,10 @@ export default function SlicerWorkspace({ file: initialFile }: SlicerWorkspacePr
 
   const handleSend = async () => {
     if (!slicedPath || !printer) return;
+    if (usePrinterMonitorStore.getState().isBedEmpty === false) {
+      setStatus({ type: 'error', message: 'The printer bed looks occupied — clean it up before sending a new print.' });
+      return;
+    }
     setSending(true);
     setStatus(null);
     try {
