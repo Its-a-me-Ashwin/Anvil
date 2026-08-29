@@ -231,9 +231,20 @@ export default function RightAgentPanel() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSend();
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
 
   const toggleMic = () => {
     if (listening) {
@@ -387,14 +398,15 @@ export default function RightAgentPanel() {
       )}
 
       <div className="p-3 border-t border-anvil-border bg-anvil-panel shrink-0">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-anvil-bg border border-anvil-border focus-within:border-anvil-accent">
-          <input
-            type="text"
+        <div className="flex items-end gap-2 px-3 py-2 rounded-lg bg-anvil-bg border border-anvil-border focus-within:border-anvil-accent">
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={currentProject ? 'Ask Anvil anything or give an instruction...' : 'Click "New Project" above to start...'}
-            className="flex-1 bg-transparent border-none outline-none text-xs text-anvil-text placeholder-anvil-muted"
+            className="flex-1 bg-transparent border-none outline-none resize-none text-xs text-anvil-text placeholder-anvil-muted leading-relaxed py-1 max-h-40 overflow-y-auto"
             disabled={sending || !currentProject}
           />
           <button
@@ -402,14 +414,14 @@ export default function RightAgentPanel() {
             onClick={toggleMic}
             disabled={!currentProject}
             title={listening ? 'Stop recording' : 'Speak to type'}
-            className={`disabled:opacity-50 ${listening ? 'text-red-500 animate-pulse' : 'text-anvil-muted hover:text-white'}`}
+            className={`shrink-0 mb-1 disabled:opacity-50 ${listening ? 'text-red-500 animate-pulse' : 'text-anvil-muted hover:text-white'}`}
           >
             {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
           <button
             onClick={handleSend}
             disabled={sending || !input.trim() || !currentProject}
-            className="w-7 h-7 rounded bg-anvil-accent hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-white"
+            className="shrink-0 w-7 h-7 rounded bg-anvil-accent hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center text-white"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
