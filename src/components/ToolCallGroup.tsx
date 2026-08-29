@@ -1,18 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChevronRight, Wrench } from 'lucide-react';
 import type { ToolCall } from '../services/agentService';
 import ToolCallCard from './ToolCallCard';
 
-// Groups a turn's tool calls under one collapsible header. While the turn is
-// still streaming in, the group stays open so each call's input/output is
-// visible as it runs; the instant the turn finishes, it auto-collapses down
-// to just the header.
+// Groups a turn's tool calls under one collapsible header. It stays open —
+// including after the turn finishes — so the whole sequence stays visible;
+// the header is just there for the user to collapse it manually if they want.
 export default function ToolCallGroup({ calls, streaming }: { calls: ToolCall[]; streaming?: boolean }) {
-  const [open, setOpen] = useState(!!streaming);
-
-  useEffect(() => {
-    if (!streaming) setOpen(false);
-  }, [streaming]);
+  const [open, setOpen] = useState(true);
 
   if (calls.length === 0) return null;
 
