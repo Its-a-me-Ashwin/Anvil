@@ -29,29 +29,30 @@ noted below.
 
 ---
 
-## 0:00–0:08 — Cold open
+## 0:00–0:18 — Cold open
 
-**Clip A** — rocket launch, Utah desert. Let the countdown audio play
-under the first line, cut to ignition exactly as the VO lands.
-
-> **VO:** *"Every build like this ends in excitement. Most of them start in fifteen browser tabs."*
+**Clip A** — rocket launch, Utah desert, countdown into ignition.
+**No VO here.** The real countdown and launch audio already do the job
+better than a voiceover talking over them would — let it play in full,
+untouched.
 
 **On screen:** nothing added — pure clip, full bleed, real audio.
-**Subtitle:** the VO line, standard lower-third caption style.
+**Subtitle:** none needed while there's no VO — if the countdown has
+audible speech (a real "3, 2, 1"), caption *that* instead of leaving dead
+air in the captions.
 
----
+Hard cut on ignition straight into **Clip B** — quick cuts: a shelf of
+model rockets, an RC plane mid-build, a workbench with tools and
+half-finished parts. 3–4 cuts, fast, no lingering on any one shot. The VO
+starts exactly on this cut, not before.
 
-## 0:08–0:18 — Why we're building this
-
-**Clip B** — quick cuts: a shelf of model rockets, an RC plane mid-build,
-a workbench with tools and half-finished parts. 3–4 cuts, fast, no
-lingering on any one shot.
-
-> **VO:** *"We love building things that fly — rockets, RC planes, whatever's next on the bench. And every time, the actual engineering competes with the busywork around it."*
+> **VO:** *"We love building things that fly — rockets, RC planes, whatever's next on the bench. But every build like this starts the same way: not with the engineering. With fifteen browser tabs."*
 
 **On screen:** nothing added.
 **CapCut note:** this is the only place personality/authenticity carries
-the beat — don't caption it with icons, let the footage speak.
+the beat — don't caption it with icons, let the footage speak. The line
+"fifteen browser tabs" is a deliberate setup for the next beat's visual —
+don't cut away before it lands.
 
 ---
 
