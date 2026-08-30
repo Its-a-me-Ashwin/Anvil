@@ -1,0 +1,15 @@
+.git
+.claude
+dist
+dist-ssr
+node_modules/.cache
+backend/.venv
+backend/__pycache__
+backend/**/__pycache__
+backend/*.pyc
+backend/.env
+backend/.env.example
+backend/circuit_output
+backend/sandbox_project/*/
+backend/sandbox_project/*.code-workspace
+backend/.pytest_cache
