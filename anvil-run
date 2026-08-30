@@ -70,6 +70,11 @@ ensure_npm_deps() {
   fi
 }
 
+ensure_backend_deps() {
+  echo "  Ensuring backend Python requirements..."
+  "$BACKEND_PY" -m pip install -q -r "$ROOT/backend/requirements.txt" || return 1
+}
+
 wait_for_port() {
   local svc="$1" port="$2"
   local tries=20
@@ -241,6 +246,10 @@ start_service() {
           }
         fi
       fi
+      ensure_backend_deps || {
+        echo "  -> backend dependency install failed (see output above)"
+        return
+      }
       cd "$ROOT/backend"
       nohup "$BACKEND_PY" server.py >"$LOGDIR/backend.log" 2>&1 &
       echo $! >"$PIDDIR/backend.pid"
