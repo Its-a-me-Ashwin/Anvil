@@ -30,6 +30,9 @@ backend/sandbox_project/animation_output/
 backend/sandbox_project/*/
 backend/sandbox_project/*.code-workspace
 
+# Devpost submission drafts — local planning only, never pushed
+/submission/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

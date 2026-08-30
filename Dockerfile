@@ -1,14 +1,16 @@
 # Backend container for Cloud Run.
 # Installs Python 3.12, Node 20 (for MCP servers), then the backend.
 #
-# Build context must be the REPO ROOT, not backend/ — e.g.
-#   gcloud run deploy --source . --dockerfile backend/Dockerfile ...
-# The filesystem MCP adapter (adapters/filesystem/adapter.py) resolves its
-# server script from node_modules one level above backend/, i.e. the
-# repo-root node_modules populated by the top-level package.json. Building
-# from backend/ alone (the old setup) never saw that package.json, never ran
-# npm install, and left backend/ flattened into /app with no real repo root
-# above it — so that adapter silently failed to load and the agent
+# Lives at the REPO ROOT deliberately, not backend/ — so a plain
+# `gcloud run deploy --source .` or `docker build .` picks it up
+# automatically, no --dockerfile flag needed. The filesystem MCP adapter
+# (backend/adapters/filesystem/adapter.py) resolves its server script from
+# node_modules one level above backend/, i.e. this repo-root node_modules
+# populated by the top-level package.json — so the build context must stay
+# the repo root regardless of where this file lives. Building from backend/
+# alone as the context (the original setup) never saw that package.json,
+# never ran npm install, and left backend/ flattened into /app with no real
+# repo root above it — so that adapter silently failed to load and the agent
 # hallucinated file writes instead of actually making them.
 
 FROM python:3.12-slim

@@ -113,19 +113,20 @@ For a compose version see [mtlynch/firestore-emulator-docker](https://github.com
 
 ### 6a. Build and push the container
 
-Build from the **repo root**, not `backend/` — the backend's filesystem tool
-needs the root-level `package.json`'s `node_modules` (specifically
-`@modelcontextprotocol/server-filesystem`) to be present in the image, which a
-`backend/`-only build context can't see:
+The `Dockerfile` lives at the **repo root** (not `backend/`) specifically so a
+plain `docker build .` or `gcloud run deploy --source .` picks it up
+automatically — the backend's filesystem tool needs the root-level
+`package.json`'s `node_modules` (specifically
+`@modelcontextprotocol/server-filesystem`) to be present in the image, which
+only works if the build context is the repo root, not `backend/`:
 
 ```bash
-docker build -f backend/Dockerfile -t gcr.io/YOUR_PROJECT_ID/anvil-backend .
+docker build -t gcr.io/YOUR_PROJECT_ID/anvil-backend .
 docker push gcr.io/YOUR_PROJECT_ID/anvil-backend
 ```
 
-(Equivalently, `gcloud run deploy --source . --dockerfile backend/Dockerfile`
-builds and deploys in one step — just make sure `--source` is the repo root,
-not `backend/`.)
+(Equivalently, `gcloud run deploy --source .` builds and deploys in one step
+— just make sure `--source` is the repo root, not `backend/`.)
 
 ### 6b. Deploy to Cloud Run
 
