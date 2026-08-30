@@ -56,7 +56,7 @@ export default function RtspViewer(_props: RtspViewerProps) {
   useEffect(() => {
     if (!printer?.name || !monitoringArmed) return;
     const check = () => {
-      checkPrinterVision()
+      checkPrinterVision(printer.name)
         .then(setVisionResult)
         .catch((err) => setVisionError(err?.message || 'Vision check failed'));
     };
