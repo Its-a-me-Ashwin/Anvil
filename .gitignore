@@ -33,6 +33,9 @@ backend/sandbox_project/*.code-workspace
 # Devpost submission drafts — local planning only, never pushed
 /submission/
 
+# Demo video script and shoot assets — local planning only, never pushed
+/demo-video/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
