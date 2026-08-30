@@ -18,15 +18,13 @@
 [![Last Commit](https://img.shields.io/github/last-commit/Its-a-me-Ashwin/Anvil?style=flat-square&color=blue)](https://github.com/Its-a-me-Ashwin/Anvil/commits/main)
 [![Top Language](https://img.shields.io/github/languages/top/Its-a-me-Ashwin/Anvil?style=flat-square)](#)
 
-**[Live Demo](#)** · **[Watch the video](#)** · [Architecture](#-architecture) · [Getting Started](#-getting-started)
-
 </div>
 
 <br>
 
 <div align="center">
 
-| [🧩 The problem](#the-problem) | [✨ What it does](#-what-anvil-does) | [🏗️ Architecture](#-architecture) | [🧠 Google stack](#-the-google-ai--cloud-stack) | [🚀 Getting started](#-getting-started) | [📁 Structure](#-project-structure) |
+| [🧩 The problem](#the-problem) | [✨ What it does](#what-it-does) | [🏗️ Architecture](#architecture) | [🧠 Google stack](#google-stack) | [🚀 Getting started](#getting-started) | [📁 Structure](#project-structure) |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 
 </div>
@@ -69,6 +67,7 @@ goals, locked constraints, the parts you own, your own skill level — and
 *acts* on it. Not a chatbot that answers questions about hardware. A partner
 that does the hardware work next to you, and remembers what it did.
 
+<a id="what-it-does"></a>
 ## ✨ What Anvil does
 
 <details open>
@@ -152,6 +151,7 @@ anvil › [set_skill_level: CAD & Mechanical Design → 4/5]
         airframe and avionics bay whenever you are.
 ```
 
+<a id="architecture"></a>
 ## 🏗️ Architecture
 
 Anvil is five decoupled services, not a monolith. The agent never talks to
@@ -239,6 +239,7 @@ flowchart TB
 
 </details>
 
+<a id="google-stack"></a>
 ## 🧠 The Google AI & Cloud stack
 
 | Piece | Role |
@@ -290,6 +291,7 @@ flowchart TB
 [![code-server](https://img.shields.io/badge/code--server-VS%20Code%20in%20browser-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white)](https://github.com/coder/code-server)
 [![MCP](https://img.shields.io/badge/Model%20Context%20Protocol-000000?style=flat-square)](https://modelcontextprotocol.io/)
 
+<a id="getting-started"></a>
 ## 🚀 Getting started
 
 Anvil runs as five services. See [`local-deploy.md`](local-deploy.md) for the
@@ -341,6 +343,7 @@ gcloud run deploy anvil-backend \
 `{"status":"ok","tools":N}` — that response is the "backend running on
 Google Cloud" proof the submission asks for.
 
+<a id="project-structure"></a>
 ## 📁 Project structure
 
 ```
