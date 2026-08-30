@@ -34,7 +34,7 @@ noted below.
 **Clip A** — rocket launch, Utah desert. Let the countdown audio play
 under the first line, cut to ignition exactly as the VO lands.
 
-> **VO:** *"Every build like this ends in a launch. Most of them start in fifteen browser tabs."*
+> **VO:** *"Every build like this ends in excitement. Most of them start in fifteen browser tabs."*
 
 **On screen:** nothing added — pure clip, full bleed, real audio.
 **Subtitle:** the VO line, standard lower-third caption style.
