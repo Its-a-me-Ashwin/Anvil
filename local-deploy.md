@@ -33,7 +33,7 @@ On Windows, if `python3.12` is not on PATH, use the full path from
 
 ### 2b. Install Node dependencies
 
-The repo includes a pinned Node 20 under `tools/node20/`. The npm scripts use
+The repo includes a pinned Node 20 under `vendor/node20/`. The npm scripts use
 it automatically. There are two `package.json` files: one at the repo root
 (shared tooling — printer bridge, code-server, the backend's filesystem MCP
 tool) and one in `frontend/` (the React app itself). Install both:

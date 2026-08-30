@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "code-server": "cross-env-shell PATH=\"./tools/node20:$PATH\" \"code serve-web --accept-server-license-terms --port 8080 --default-folder . --without-connection-token\"",
-    "bridge": "cross-env PATH=\"./tools/node20:$PATH\" node server/workshopBridge.mjs",
-    "dev:workshop": "cross-env PATH=\"./tools/node20:$PATH\" concurrently -n bridge,vite -c blue,green \"npm run bridge\" \"npm --prefix frontend run dev\""
+    "code-server": "cross-env-shell PATH=\"./vendor/node20:$PATH\" \"code serve-web --accept-server-license-terms --port 8080 --default-folder . --without-connection-token\"",
+    "bridge": "cross-env PATH=\"./vendor/node20:$PATH\" node server/workshopBridge.mjs",
+    "dev:workshop": "cross-env PATH=\"./vendor/node20:$PATH\" concurrently -n bridge,vite -c blue,green \"npm run bridge\" \"npm --prefix frontend run dev\""
   },
   "dependencies": {
     "@modelcontextprotocol/server-filesystem": "^2026.7.10"

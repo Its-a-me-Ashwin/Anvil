@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "cross-env PATH=\"../tools/node20:$PATH\" vite",
-    "build": "cross-env-shell PATH=\"../tools/node20:$PATH\" \"tsc && vite build\"",
-    "preview": "cross-env-shell PATH=\"../tools/node20:$PATH\" \"vite preview\""
+    "dev": "cross-env PATH=\"../vendor/node20:$PATH\" vite",
+    "build": "cross-env-shell PATH=\"../vendor/node20:$PATH\" \"tsc && vite build\"",
+    "preview": "cross-env-shell PATH=\"../vendor/node20:$PATH\" \"vite preview\""
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

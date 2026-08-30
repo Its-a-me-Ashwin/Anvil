@@ -34,7 +34,7 @@ def get_server_params() -> StdioServerParameters:
     # platforms it exists on disk (checked into the repo) but isn't
     # executable there, and picking it produces a confusing "Permission
     # denied" from the OS refusing to exec a foreign binary format.
-    bundled_node = PROJECT_ROOT / "tools" / "node20" / "node.exe"
+    bundled_node = PROJECT_ROOT / "vendor" / "node20" / "node.exe"
     use_bundled = os.name == "nt" and bundled_node.exists()
     node = str(bundled_node) if use_bundled else (shutil.which("node") or "node")
     return StdioServerParameters(

@@ -24,7 +24,7 @@ own `package.json`.
 
 ### 1. Node.js
 
-The repo ships a pinned Node 20 binary under `tools/node20/`. The npm scripts
+The repo ships a pinned Node 20 binary under `vendor/node20/`. The npm scripts
 use `cross-env` to prepend it to `PATH`, so no system Node install is required.
 
 Install dependencies for both package.json files:
