@@ -4,7 +4,6 @@ Provides:
 - chat sessions with session memory via Google ADK
 - project persistence through Firestore when configured
 - project state tools through adapters/registry.py
-- printer camera monitoring via a local Ollama vision model
 """
 
 from __future__ import annotations
@@ -44,7 +43,6 @@ from adapters.cad.assembly import Assembly
 from adapters.circuit.adapter import read_wiring_diagram
 from adapters.filesystem.adapter import PROJECT_DIR
 from adapters.state.adapter import read_project_summary, remove_skill_statement
-from workers import vision as vision_worker
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -748,22 +746,9 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingRes
 
 
 # -----------------------------------------------------------------------------
-# Printer camera monitoring (Gemma via Ollama)
-# -----------------------------------------------------------------------------
-
-
-@app.post("/vision/monitor")
-async def vision_monitor() -> dict:
-    """Grab a live frame from the printer camera and classify bed/print
-    state. Polled by the frontend after Send to Printer, while the Printer
-    Camera tab stays open. Always 200 — "ok": False (with a "reason") is a
-    normal outcome here (camera or Ollama unreachable), not a server error."""
-    return await vision_worker.analyze_printer_frame()
-
-
-# -----------------------------------------------------------------------------
 # Entry point
 # -----------------------------------------------------------------------------
+
 if __name__ == "__main__":
     import uvicorn
 

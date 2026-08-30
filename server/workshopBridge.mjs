@@ -24,6 +24,17 @@ const BAMBU_PROFILE_ROOT = IS_MAC
   : path.resolve(process.env.USERPROFILE || process.env.HOME, 'AppData/Roaming/BambuStudio/system/BBL');
 
 const PORT = process.env.WORKSHOP_PORT || 3001;
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const VISION_MODEL = process.env.VISION_MODEL || 'gemma3:4b';
+const VISION_PROMPT = (
+  'You are monitoring a 3D printer through its camera. Look at this frame '
+  + 'and respond with ONLY a JSON object with exactly these three boolean '
+  + 'fields: "isBedEmpty" (true if the print bed is empty/clear, false if '
+  + 'there is a model or object on it), "isSpaghetti" (true if you see a '
+  + 'failed print / tangled filament mess, aka "spaghetti", on the bed), '
+  + '"isPrinting" (true if the printer appears to be actively printing '
+  + 'right now).'
+);
 
 const UI_MODEL_TO_BAMBU = {
   p1p: 'P1P',
@@ -336,6 +347,39 @@ async function discoverPrinters() {
   }
 }
 
+async function analyzePrinterFrame(printer) {
+  const frame = await grabCameraFrame(printer);
+  const imageB64 = frame.toString('base64');
+  const payload = {
+    model: VISION_MODEL,
+    prompt: VISION_PROMPT,
+    images: [imageB64],
+    format: 'json',
+    stream: false,
+  };
+  const resp = await fetch(`${OLLAMA_URL}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) {
+    throw new Error(`Ollama is unreachable: HTTP ${resp.status}`);
+  }
+  const data = await resp.json();
+  let parsed;
+  try {
+    parsed = JSON.parse(data.response || '{}');
+  } catch {
+    throw new Error('Model did not return valid JSON');
+  }
+  return {
+    ok: true,
+    isBedEmpty: parsed.isBedEmpty,
+    isSpaghetti: parsed.isSpaghetti,
+    isPrinting: parsed.isPrinting,
+  };
+}
+
 const server = http.createServer(async (req, res) => {
   corsHeaders(res);
   if (req.method === 'OPTIONS') {
@@ -371,6 +415,26 @@ const server = http.createServer(async (req, res) => {
         res.end(frame);
       } catch (err) {
         send(502, { success: false, error: err.message });
+      }
+      return;
+    }
+
+    if (req.url?.startsWith('/vision/monitor') && req.method === 'POST') {
+      const { searchParams } = new URL(req.url, `http://localhost:${PORT}`);
+      const config = await readPrintersConfig();
+      const printer = searchParams.get('printer') ? config[searchParams.get('printer')] : Object.values(config)[0];
+      if (!printer?.ip_address || !printer?.access_code) {
+        send(200, { ok: false, reason: 'camera', error: 'No configured printer camera.' });
+        return;
+      }
+      try {
+        const result = await analyzePrinterFrame(printer);
+        send(200, result);
+      } catch (err) {
+        let reason = 'camera';
+        if (err.message.includes('Ollama')) reason = 'ollama';
+        else if (err.message.includes('JSON')) reason = 'parse';
+        send(200, { ok: false, reason, error: err.message });
       }
       return;
     }

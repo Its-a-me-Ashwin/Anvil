@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_ANVIL_API_URL || 'http://localhost:8000';
+const BRIDGE_URL = import.meta.env.VITE_WORKSHOP_BRIDGE_URL || 'http://localhost:3001';
 
 export interface PrinterVisionResult {
   ok: boolean;
@@ -12,8 +12,9 @@ export interface PrinterVisionResult {
   error?: string;
 }
 
-export async function checkPrinterVision(): Promise<PrinterVisionResult> {
-  const res = await fetch(`${API_BASE}/vision/monitor`, { method: 'POST' });
+export async function checkPrinterVision(printerName?: string): Promise<PrinterVisionResult> {
+  const params = printerName ? `?printer=${encodeURIComponent(printerName)}` : '';
+  const res = await fetch(`${BRIDGE_URL}/vision/monitor${params}`, { method: 'POST' });
   if (!res.ok) throw new Error(`Vision check failed (${res.status})`);
   return res.json();
 }

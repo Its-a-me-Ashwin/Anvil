@@ -5,6 +5,8 @@
 # needed at backend runtime.
 frontend
 node_modules
+.venv
+tools
 dist
 dist-ssr
 backend/.venv
@@ -17,3 +19,4 @@ backend/circuit_output
 backend/sandbox_project/*/
 backend/sandbox_project/*.code-workspace
 backend/.pytest_cache
+vendor
