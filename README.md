@@ -241,17 +241,17 @@ flowchart TB
 
 ## 🧠 The Google AI & Cloud stack
 
-| Piece | Role | Status |
-|---|---|---|
-| **Gemini 3.7** | Agent reasoning, tool orchestration | ✅ Mandatory |
-| **Google ADK** | Agent framework — `MCPToolset` + `FunctionTool` wiring | ✅ Mandatory framework |
-| **Firestore** | Project state, decisions, inventory, skill profile | ✅ Mandatory cloud infra |
-| **Cloud Run** | Backend hosting | ✅ Mandatory cloud infra |
-| **Gemma 3 (4B)** | Local printer-camera vision, via Ollama | ➕ Bonus model |
-| **Veo 3.1** | On-demand explainer animation generation | ➕ Bonus model |
-| **Lyria 3** | Instrumental score generation, muxed into Veo clips | ➕ Bonus model |
-| **Google Search grounding** | Fallback for questions project state can't answer | Built-in ADK tool |
-| **YouTube Data API v3** | Finds real tutorials before generating synthetic ones | Utility |
+| Piece | Role |
+|---|---|
+| **Gemini 3.7** | Agent reasoning, tool orchestration |
+| **Google ADK** | Agent framework — `MCPToolset` + `FunctionTool` wiring |
+| **Firestore** | Project state, decisions, inventory, skill profile |
+| **Cloud Run** | Backend hosting |
+| **Gemma 3 (4B)** | Local printer-camera vision, via Ollama |
+| **Veo 3.1** | On-demand explainer animation generation |
+| **Lyria 3** | Instrumental score generation, muxed into Veo clips |
+| **Google Search grounding** | Fallback for questions project state can't answer |
+| **YouTube Data API v3** | Finds real tutorials before generating synthetic ones |
 
 ## 🧰 Tech stack
 
