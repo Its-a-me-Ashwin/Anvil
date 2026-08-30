@@ -388,4 +388,4 @@ task, is the thing being submitted.
 
 Built during **All Things Agentic Hackathon 2026**.
 
-</div>     
+</div> 
