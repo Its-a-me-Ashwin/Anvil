@@ -23,6 +23,12 @@ backend/.env
 backend/sandbox_project/cad_output/assemblies/
 backend/circuit_output/
 backend/sandbox_project/animation_output/
+# Per-project generated files (write_file/edit_file output) and their
+# .code-workspace files — see _project_sandbox_dir/_write_project_workspace_file
+# in server.py. The */ rule also matches cad_output/animation_output
+# themselves, which is fine — the two rules above already ignore those.
+backend/sandbox_project/*/
+backend/sandbox_project/*.code-workspace
 
 # Editor directories and files
 .vscode/*

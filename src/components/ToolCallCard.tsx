@@ -34,7 +34,15 @@ export default function ToolCallCard({ call, autoManage }: { call: ToolCall; aut
   const hadResult = useRef(hasResult);
 
   useEffect(() => {
-    if (autoManage && !hadResult.current && hasResult) setOpen(false);
+    if (autoManage && !hadResult.current && hasResult) {
+      hadResult.current = hasResult;
+      // Hold the card open briefly after its result lands, then collapse.
+      // Collapsing instantly the same frame the result arrives fought the
+      // transcript's auto-scroll and made the panel visibly shake; the short
+      // wait lets the layout settle (and the result stay readable) first.
+      const id = setTimeout(() => setOpen(false), 550);
+      return () => clearTimeout(id);
+    }
     hadResult.current = hasResult;
   }, [autoManage, hasResult]);
 

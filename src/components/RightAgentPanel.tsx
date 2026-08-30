@@ -10,6 +10,7 @@ import { getWiringDiagram } from '../services/circuitService';
 import { animationUrl } from '../services/animationService';
 import ToolCallGroup from './ToolCallGroup';
 import MemoryPanel from './MemoryPanel';
+import MarkdownMessage from './MarkdownMessage';
 
 const FILE_WRITE_TOOLS = new Set(['write_file', 'edit_file']);
 const CIRCUIT_WRITE_TOOLS = new Set(['create_wiring_diagram', 'update_wiring_diagram']);
@@ -24,8 +25,12 @@ const CAD_WRITE_TOOLS = new Set([
 // Whenever this turn's tool calls wrote or edited a file, pull the real VS
 // Code Server tab to the front and deep-link it straight to that file (or
 // all of them, if several were touched), instead of making the user hunt
-// for the "VS Code" tab and open it themselves.
-async function openTouchedFiles(toolCalls: ToolCall[] | undefined) {
+// for the "VS Code" tab and open it themselves. The workbench is also
+// re-rooted at this project's own .code-workspace file (see
+// buildVsCodeOpenUrl's `workspace` param), so the explorer shows only this
+// project's files under its actual project name, not the whole Anvil source
+// tree or the raw project id the sandbox folder is named after on disk.
+async function openTouchedFiles(toolCalls: ToolCall[] | undefined, projectId: string) {
   const paths = Array.from(
     new Set(
       (toolCalls || [])
@@ -46,7 +51,14 @@ async function openTouchedFiles(toolCalls: ToolCall[] | undefined) {
   }
   if (absPaths.length === 0) return;
 
-  const url = buildVsCodeOpenUrl(absPaths);
+  let workspaceAbsPath: string | undefined;
+  try {
+    workspaceAbsPath = (await resolveWorkspacePath(`backend/sandbox_project/${projectId}.code-workspace`)).abs_path;
+  } catch {
+    // Falls back to opening the file(s) without re-rooting the explorer.
+  }
+
+  const url = buildVsCodeOpenUrl(absPaths, workspaceAbsPath);
   const { tabs, addTab, updateTab, setActiveTab } = useWorkspaceStore.getState();
   const existing = tabs.find((t) => t.type === 'codeserver');
   if (existing) {
@@ -153,9 +165,17 @@ export default function RightAgentPanel() {
   const [sending, setSending] = useState(false);
   const [listening, setListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
   const sendingRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const baseTextRef = useRef('');
+  const codeServerFlushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (codeServerFlushRef.current) clearTimeout(codeServerFlushRef.current);
+    };
+  }, []);
 
   const {
     messages,
@@ -177,10 +197,29 @@ export default function RightAgentPanel() {
     sendingRef.current = sending;
   }, [sending]);
 
+  // Keep the transcript pinned to the bottom while streaming, but do it
+  // without the jitter the naive version caused. Two changes matter:
+  // (1) only auto-scroll when the user is already near the bottom, so a tool
+  //     card collapsing (which shrinks content height) can't yank the view
+  //     while they're reading further up; and
+  // (2) defer the scroll to the next animation frame, so it reads the height
+  //     *after* the collapse/expand has laid out — no overshoot-then-clamp
+  //     bounce.
+  const onTranscriptScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 80;
+  };
+
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (!stickToBottomRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
   }, [messages]);
 
   useEffect(() => {
@@ -219,17 +258,39 @@ export default function RightAgentPanel() {
 
     try {
       const project = currentProject;
+      // Tracked locally (not the store) so each viewer-opening helper below
+      // can see the full set of calls made so far in this turn, including
+      // the one that just resolved — that's what lets e.g. the VS Code tab
+      // open right after the first write_file finishes, instead of waiting
+      // for the whole streamed turn to end.
+      const toolCallsSoFar: ToolCall[] = [];
+
       const data = await chatProjectStream(project.id, text, {
-        onToolCall: appendToolCall,
-        onToolResult: updateToolCallResult,
+        onToolCall: (call) => {
+          toolCallsSoFar.push(call);
+          appendToolCall(call);
+        },
+        onToolResult: (id, result) => {
+          const idx = toolCallsSoFar.findIndex((c) => c.id === id);
+          if (idx !== -1) toolCallsSoFar[idx] = { ...toolCallsSoFar[idx], result };
+          updateToolCallResult(id, result);
+          // Several write_file calls in one turn tend to land within
+          // milliseconds of each other. Re-navigating the embedded VS Code
+          // iframe on every single one forces a full reload/blank flash each
+          // time — wait briefly for the burst to settle, then open once with
+          // every file touched so far instead of once per file.
+          if (codeServerFlushRef.current) clearTimeout(codeServerFlushRef.current);
+          codeServerFlushRef.current = setTimeout(() => {
+            openTouchedFiles(toolCallsSoFar, project.id);
+          }, 400);
+          openCircuitViewer(toolCallsSoFar, project.id);
+          openAnimationViewer(toolCallsSoFar, project.id);
+          openTutorialVideoViewer(toolCallsSoFar);
+          openCadViewer(toolCallsSoFar);
+        },
         onText: appendAssistantText,
       });
       finishAssistantMessage({ text: data.response, tool_calls: data.tool_calls });
-      openTouchedFiles(data.tool_calls);
-      openCircuitViewer(data.tool_calls, project.id);
-      openAnimationViewer(data.tool_calls, project.id);
-      openTutorialVideoViewer(data.tool_calls);
-      openCadViewer(data.tool_calls);
       if (project.name !== data.project_name) {
         setCurrentProject({ ...project, name: data.project_name });
       }
@@ -344,7 +405,7 @@ export default function RightAgentPanel() {
       </div>
 
       {tab === 'chat' && (
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={scrollRef} onScroll={onTranscriptScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="rounded-lg bg-anvil-panelHover border border-anvil-border p-3">
             <div className="flex items-start gap-3">
               <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
@@ -374,7 +435,7 @@ export default function RightAgentPanel() {
                 {msg.tool_calls && msg.tool_calls.length > 0 && (
                   <ToolCallGroup calls={msg.tool_calls} streaming={msg.streaming} />
                 )}
-                {msg.text && <div>{msg.text}</div>}
+                {msg.text && <MarkdownMessage text={msg.text} />}
                 {msg.streaming && !msg.text && (!msg.tool_calls || msg.tool_calls.length === 0) && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-anvil-muted" />
                 )}
