@@ -1,0 +1,38 @@
+{
+  "name": "anvil-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "cross-env PATH=\"../tools/node20:$PATH\" vite",
+    "build": "cross-env-shell PATH=\"../tools/node20:$PATH\" \"tsc && vite build\"",
+    "preview": "cross-env-shell PATH=\"../tools/node20:$PATH\" \"vite preview\""
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.5.4",
+    "cross-env": "^10.1.0",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^3.4.1",
+    "typescript": "~6.0.2",
+    "vite": "^5.4.21"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@xyflow/react": "^12.11.3",
+    "elkjs": "^0.12.0",
+    "lucide-react": "^1.33.0",
+    "pdfjs-dist": "^4.6.82",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.12.3",
+    "remark-gfm": "^4.0.1",
+    "three": "^0.169.0",
+    "zustand": "^5.0.15"
+  }
+}

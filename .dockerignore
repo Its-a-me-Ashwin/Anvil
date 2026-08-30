@@ -1,8 +1,12 @@
 .git
 .claude
+# The backend image only needs the root package.json (for the filesystem
+# MCP tool) and backend/ itself — the React app's source/deps are never
+# needed at backend runtime.
+frontend
+node_modules
 dist
 dist-ssr
-node_modules/.cache
 backend/.venv
 backend/__pycache__
 backend/**/__pycache__

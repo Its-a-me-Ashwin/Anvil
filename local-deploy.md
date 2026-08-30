@@ -34,12 +34,13 @@ On Windows, if `python3.12` is not on PATH, use the full path from
 ### 2b. Install Node dependencies
 
 The repo includes a pinned Node 20 under `tools/node20/`. The npm scripts use
-it automatically.
-
-From the project root:
+it automatically. There are two `package.json` files: one at the repo root
+(shared tooling — printer bridge, code-server, the backend's filesystem MCP
+tool) and one in `frontend/` (the React app itself). Install both:
 
 ```bash
 npm install
+cd frontend && npm install && cd ..
 ```
 
 ### 2c. Install Ollama (optional — for vision)
@@ -130,6 +131,7 @@ Runs on http://localhost:8080.
 ### Terminal 5 — Frontend
 
 ```bash
+cd frontend
 npm run dev
 ```
 
@@ -198,5 +200,5 @@ Then start the backend server again.
 | Workshop bridge | 3001 | `npm run bridge` |
 | Backend API | 8000 | `python backend/server.py` |
 | Code server | 8080 | `npm run code-server` |
-| Frontend | 5173 | `npm run dev` |
+| Frontend | 5173 | `npm run dev` (from `frontend/`) |
 | Ollama | 11434 | `ollama serve` |

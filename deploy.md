@@ -113,10 +113,19 @@ For a compose version see [mtlynch/firestore-emulator-docker](https://github.com
 
 ### 6a. Build and push the container
 
+Build from the **repo root**, not `backend/` — the backend's filesystem tool
+needs the root-level `package.json`'s `node_modules` (specifically
+`@modelcontextprotocol/server-filesystem`) to be present in the image, which a
+`backend/`-only build context can't see:
+
 ```bash
-cd backend
-gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/anvil-backend
+docker build -f backend/Dockerfile -t gcr.io/YOUR_PROJECT_ID/anvil-backend .
+docker push gcr.io/YOUR_PROJECT_ID/anvil-backend
 ```
+
+(Equivalently, `gcloud run deploy --source . --dockerfile backend/Dockerfile`
+builds and deploys in one step — just make sure `--source` is the repo root,
+not `backend/`.)
 
 ### 6b. Deploy to Cloud Run
 
@@ -172,7 +181,9 @@ In the frontend code, point API calls to the Cloud Run URL instead of
 `http://localhost:8000`. For a hackathon you can hard-code it in a config file
 or pass it as a build-time env var in Vite.
 
-Example `.env` at the project root for the frontend build:
+Example `frontend/.env.production` for the frontend build (the frontend app
+lives in `frontend/`, with its own `package.json`/`vite.config.ts` — this env
+file needs to sit alongside those, not at the repo root):
 
 ```bash
 VITE_ANVIL_API_URL=https://anvil-backend-xxx-uc.a.run.app
@@ -208,4 +219,4 @@ You should see `{"status":"ok","tools":39}`.
 - **403 on Firestore** → Cloud Run service account missing `roles/datastore.user`.
 - **Gemini 401** → `GEMINI_API_KEY` missing or wrong.
 - **Search adapter warning** → `BRAVE_API_KEY` not set; agent still works without web search.
-- **MCP filesystem warnings** → Node/npx is not on PATH in the container; the Dockerfile installs Node 20.
+- **MCP filesystem warnings / agent says it wrote a file but didn't** → the filesystem tool failed to load and the agent hallucinated success instead of erroring. Almost always caused by building the image from `backend/` instead of the repo root (see 6a) — check the startup logs for `"Secure MCP Filesystem Server running on stdio"`; if that line is missing, the build context is wrong.

@@ -8,12 +8,17 @@ diagrams, send models to a Bambu printer, and (soon) watch live video streams.
 
 | Service | Port | Command | Purpose |
 |---|---|---|---|
-| Vite frontend | 5173 | `npm run dev` | Main UI (panes, iframes, tools) |
-| Workshop bridge | 3001 | `npm run bridge` | Bambu printer + slicing proxy |
+| Vite frontend | 5173 | `npm run dev` (from `frontend/`) | Main UI (panes, iframes, tools) |
+| Workshop bridge | 3001 | `npm run bridge` (from repo root) | Bambu printer + slicing proxy |
 | Backend API / agent | 8000 | `python backend/server.py` | Chat sessions, tools, state |
-| Code server | 8080 | `npm run code-server` | Browser VS Code on the project folder |
+| Code server | 8080 | `npm run code-server` (from repo root) | Browser VS Code on the project folder |
 | Firestore emulator | 8200 | docker | Local project state DB |
 | Ollama | 11434 | `ollama serve` (optional) | Local vision / telemetry models |
+
+The repo has **two `package.json` files**: the one at the repo root only holds
+shared dev tooling (the printer bridge, code-server, and the filesystem MCP
+tool the backend uses) — the actual React app lives in `frontend/` with its
+own `package.json`.
 
 ## One-time setup
 
@@ -22,10 +27,11 @@ diagrams, send models to a Bambu printer, and (soon) watch live video streams.
 The repo ships a pinned Node 20 binary under `tools/node20/`. The npm scripts
 use `cross-env` to prepend it to `PATH`, so no system Node install is required.
 
-Install frontend dependencies once:
+Install dependencies for both package.json files:
 
 ```bash
-npm install
+npm install               # root tooling (bridge, code-server, MCP filesystem tool)
+cd frontend && npm install && cd ..   # the frontend app itself
 ```
 
 ### 2. Python backend
@@ -82,6 +88,7 @@ npm run code-server
 ### Terminal 4 — Frontend
 
 ```bash
+cd frontend
 npm run dev
 ```
 

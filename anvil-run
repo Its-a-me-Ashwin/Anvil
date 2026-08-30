@@ -70,6 +70,13 @@ ensure_npm_deps() {
   fi
 }
 
+ensure_frontend_npm_deps() {
+  if [ ! -d "$ROOT/frontend/node_modules" ]; then
+    echo "  frontend/node_modules not found -- running npm install..."
+    (cd "$ROOT/frontend" && npm install) || return 1
+  fi
+}
+
 ensure_backend_deps() {
   echo "  Ensuring backend Python requirements..."
   "$BACKEND_PY" -m pip install -q -r "$ROOT/backend/requirements.txt" || return 1
@@ -261,8 +268,8 @@ start_service() {
       echo $! >"$PIDDIR/code-server.pid"
       ;;
     frontend)
-      ensure_npm_deps || { echo "  -> npm install failed (see output above)"; return; }
-      cd "$ROOT"
+      ensure_frontend_npm_deps || { echo "  -> npm install failed (see output above)"; return; }
+      cd "$ROOT/frontend"
       nohup npm run dev >"$LOGDIR/frontend.log" 2>&1 &
       echo $! >"$PIDDIR/frontend.pid"
       ;;
