@@ -105,3 +105,7 @@ Then open http://localhost:5173.
 ## Deploy to Google Cloud
 
 See [`deploy.md`](deploy.md) for Cloud Run + Firestore setup.
+
+## TODO
+
+* Demo
