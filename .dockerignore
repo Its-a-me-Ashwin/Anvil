@@ -6,7 +6,6 @@
 frontend
 node_modules
 .venv
-tools
 dist
 dist-ssr
 backend/.venv
