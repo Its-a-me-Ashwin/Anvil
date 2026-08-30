@@ -1,4 +1,5 @@
 import http from 'node:http';
+import https from 'node:https';
 import tls from 'node:tls';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -347,6 +348,41 @@ async function discoverPrinters() {
   }
 }
 
+function postJson(url, body) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib = parsed.protocol === 'https:' ? https : http;
+    const data = JSON.stringify(body);
+    const req = lib.request(
+      {
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: parsed.pathname + parsed.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data),
+        },
+      },
+      (res) => {
+        let chunks = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => { chunks += chunk; });
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode, body: JSON.parse(chunks || '{}') });
+          } catch {
+            reject(new Error(`Ollama returned non-JSON: ${chunks}`));
+          }
+        });
+      }
+    );
+    req.on('error', (err) => reject(new Error(`Ollama is unreachable: ${err.message}`)));
+    req.write(data);
+    req.end();
+  });
+}
+
 async function analyzePrinterFrame(printer) {
   const frame = await grabCameraFrame(printer);
   const imageB64 = frame.toString('base64');
@@ -357,15 +393,11 @@ async function analyzePrinterFrame(printer) {
     format: 'json',
     stream: false,
   };
-  const resp = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!resp.ok) {
+  const resp = await postJson(`${OLLAMA_URL}/api/generate`, payload);
+  if (resp.status < 200 || resp.status >= 300) {
     throw new Error(`Ollama is unreachable: HTTP ${resp.status}`);
   }
-  const data = await resp.json();
+  const data = resp.body;
   let parsed;
   try {
     parsed = JSON.parse(data.response || '{}');

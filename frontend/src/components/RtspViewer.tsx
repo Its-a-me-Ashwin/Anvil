@@ -22,6 +22,8 @@ export default function RtspViewer(_props: RtspViewerProps) {
   const [error, setError] = useState<string | null>(null);
   const monitoringArmed = usePrinterMonitorStore((s) => s.monitoringArmed);
   const ollamaOffline = usePrinterMonitorStore((s) => s.ollamaOffline);
+  const isSpaghetti = usePrinterMonitorStore((s) => s.isSpaghetti);
+  const lastChecked = usePrinterMonitorStore((s) => s.lastChecked);
   const setVisionResult = usePrinterMonitorStore((s) => s.setResult);
   const setVisionError = usePrinterMonitorStore((s) => s.setError);
 
@@ -65,6 +67,21 @@ export default function RtspViewer(_props: RtspViewerProps) {
     return () => clearInterval(interval);
   }, [printer?.name, monitoringArmed, setVisionResult, setVisionError]);
 
+  // Tick the "last refreshed" counter every second.
+  const [secondsAgo, setSecondsAgo] = useState(0);
+  useEffect(() => {
+    const tick = () => {
+      if (!lastChecked) {
+        setSecondsAgo(0);
+        return;
+      }
+      setSecondsAgo(Math.floor((Date.now() - new Date(lastChecked).getTime()) / 1000));
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [lastChecked]);
+
   return (
     <div className="h-full w-full flex flex-col bg-black">
       <div className="h-9 flex items-center gap-2 px-3 bg-anvil-panel border-b border-anvil-border shrink-0">
@@ -78,6 +95,20 @@ export default function RtspViewer(_props: RtspViewerProps) {
         <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border-b border-yellow-500/30 text-yellow-400 text-[11px] shrink-0">
           <AlertTriangle className="w-3 h-3 shrink-0" />
           Gemma is offline — spaghetti monitoring is unavailable right now.
+        </div>
+      )}
+
+      {monitoringArmed && lastChecked && (
+        <div
+          className={`flex items-center gap-2 px-3 py-1.5 border-b shrink-0 text-[11px] ${
+            isSpaghetti
+              ? 'bg-red-500/10 border-red-500/30 text-red-400'
+              : 'bg-green-500/10 border-green-500/30 text-green-400'
+          }`}
+        >
+          <span className={`w-2 h-2 rounded-full ${isSpaghetti ? 'bg-red-400' : 'bg-green-400'}`} />
+          <span className="font-medium">{isSpaghetti ? 'Spaghetti detected' : 'Gemma OK'}</span>
+          <span className="ml-auto opacity-80">Refreshed {secondsAgo}s ago</span>
         </div>
       )}
 
