@@ -6,7 +6,7 @@
 
 *All Things Agentic Hackathon 2026 · Collaborative Partner track*
 
-[![Gemini](https://img.shields.io/badge/Gemini-3.5-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
+[![Gemini](https://img.shields.io/badge/Gemini-3.7-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
 [![Google ADK](https://img.shields.io/badge/Google%20ADK-Agent%20Framework-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://google.github.io/adk-docs/)
 [![Cloud Run](https://img.shields.io/badge/Cloud%20Run-Backend-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
 [![Firestore](https://img.shields.io/badge/Firestore-Project%20State-FFA000?style=for-the-badge&logo=firebase&logoColor=white)](https://firebase.google.com/docs/firestore)
@@ -166,7 +166,7 @@ flowchart TB
 
     subgraph Cloud["Google Cloud"]
         Backend["FastAPI backend<br/>(Cloud Run)"]
-        ADK["Google ADK Agent<br/>Gemini 3.5"]
+        ADK["Google ADK Agent<br/>Gemini 3.7"]
         FS[("Firestore<br/>project state")]
         Search["Google Search<br/>(grounding)"]
         Veo["Veo 3.1"]
@@ -213,7 +213,7 @@ flowchart TB
   go through a **decoupled local Workshop Bridge** — the cloud backend can
   restart, redeploy, or fail without taking the printer connection down with
   it.
-- **Cloud/local model routing.** Gemini 3.5 reasons in the cloud; a **local
+- **Cloud/local model routing.** Gemini 3.7 reasons in the cloud; a **local
   Gemma 3** model handles printer-camera vision over Ollama, so the one loop
   that needs low-latency, always-on inference doesn't round-trip to the cloud.
 - **State outlives the session.** Every meaningful fact — constraints,
@@ -243,7 +243,7 @@ flowchart TB
 
 | Piece | Role | Status |
 |---|---|---|
-| **Gemini 3.5** | Agent reasoning, tool orchestration | ✅ Mandatory |
+| **Gemini 3.7** | Agent reasoning, tool orchestration | ✅ Mandatory |
 | **Google ADK** | Agent framework — `MCPToolset` + `FunctionTool` wiring | ✅ Mandatory framework |
 | **Firestore** | Project state, decisions, inventory, skill profile | ✅ Mandatory cloud infra |
 | **Cloud Run** | Backend hosting | ✅ Mandatory cloud infra |
@@ -373,7 +373,7 @@ Anvil/
 
 | Requirement | Status |
 |---|---|
-| Gemini 3.5+ via Gemini API / Vertex AI | ✅ |
+| Gemini 3.5+ via Gemini API / Vertex AI | ✅ — using Gemini 3.7 |
 | Google Agent Framework (ADK) | ✅ |
 | Google Cloud infra (Cloud Run + Firestore) | ✅ |
 | Hosted project URL | ✅ — see [Live Demo](#) |
