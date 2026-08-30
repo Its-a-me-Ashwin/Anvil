@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_ANVIL_API_URL || 'http://localhost:8000';
+const rawBase = import.meta.env.VITE_ANVIL_API_URL || 'http://localhost:8000';
+const API_BASE = rawBase.replace(/\/$/, '');
 
 export interface SourceItem {
   type: string;

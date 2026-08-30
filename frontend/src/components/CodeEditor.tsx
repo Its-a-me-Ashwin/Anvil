@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { FolderOpen, FileCode, ChevronRight, ChevronDown, Folder } from 'lucide-react';
+import { FolderOpen, FileCode, ChevronRight, ChevronDown, Folder, Save } from 'lucide-react';
 import { getLanguageFromFileName } from '../lib/fileTypes';
 
 interface FileNode {
@@ -13,16 +13,38 @@ interface FileNode {
 interface CodeEditorProps {
   content?: string;
   fileName?: string;
+  fileHandle?: FileSystemFileHandle;
   onChange?: (value: string) => void;
 }
 
-export default function CodeEditor({ content: initialContent, fileName: initialFileName, onChange }: CodeEditorProps) {
+export default function CodeEditor({
+  content: initialContent,
+  fileName: initialFileName,
+  fileHandle: externalFileHandle,
+  onChange,
+}: CodeEditorProps) {
   const [directoryHandle, setDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [tree, setTree] = useState<FileNode[]>([]);
   const [openDirs, setOpenDirs] = useState<Set<string>>(new Set());
   const [activeFile, setActiveFile] = useState<{ name: string; content: string; handle?: FileSystemFileHandle } | null>(
-    initialContent != null ? { name: initialFileName || 'untitled', content: initialContent } : null
+    initialContent != null || externalFileHandle != null
+      ? { name: initialFileName || 'untitled', content: initialContent ?? '', handle: externalFileHandle }
+      : null
   );
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!externalFileHandle) return;
+    let cancelled = false;
+    (async () => {
+      const file = await externalFileHandle.getFile();
+      const text = await file.text();
+      if (cancelled) return;
+      setActiveFile({ name: initialFileName || file.name, content: text, handle: externalFileHandle });
+      onChange?.(text);
+    })();
+    return () => { cancelled = true; };
+  }, [externalFileHandle, initialFileName, onChange]);
 
   const openFolder = async () => {
     try {
@@ -68,6 +90,19 @@ export default function CodeEditor({ content: initialContent, fileName: initialF
     const text = await file.text();
     setActiveFile({ name: node.name, content: text, handle: node.handle });
     onChange?.(text);
+  };
+
+  const saveFile = async () => {
+    if (!activeFile?.handle) return;
+    try {
+      const writable = await activeFile.handle.createWritable();
+      await writable.write(activeFile.content);
+      await writable.close();
+      setSaveStatus('Saved');
+      setTimeout(() => setSaveStatus(null), 1500);
+    } catch (err: any) {
+      setSaveStatus(`Error: ${err?.message || 'save failed'}`);
+    }
   };
 
   const toggleDir = (node: FileNode, path: string) => {
@@ -138,8 +173,21 @@ export default function CodeEditor({ content: initialContent, fileName: initialF
           </div>
         ) : (
           <>
-            <div className="h-8 flex items-center px-3 bg-anvil-panel border-b border-anvil-border text-xs text-anvil-text">
-              {activeFile.name}
+            <div className="h-8 flex items-center justify-between px-3 bg-anvil-panel border-b border-anvil-border text-xs text-anvil-text">
+              <span>{activeFile.name}</span>
+              <div className="flex items-center gap-2">
+                {saveStatus && <span className="text-anvil-muted text-[10px]">{saveStatus}</span>}
+                {activeFile.handle && (
+                  <button
+                    onClick={saveFile}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-anvil-accent hover:bg-blue-600 text-white text-[10px]"
+                    title="Save file"
+                  >
+                    <Save className="w-3 h-3" />
+                    Save
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex-1">
               <Editor
@@ -165,7 +213,7 @@ export default function CodeEditor({ content: initialContent, fileName: initialF
           </>
         )}
 
-        {activeFile && !directoryHandle && (
+        {activeFile && !directoryHandle && !activeFile.handle && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
             <button
               onClick={openFolder}

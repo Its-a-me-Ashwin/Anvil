@@ -4,7 +4,9 @@ import { useProjectStore } from '../store/projectStore';
 import { chatProjectStream, getSession, type ToolCall } from '../services/agentService';
 import { useActivityStore } from '../store/activityStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { resolveWorkspacePath } from '../services/fileService';
+import { useLocalFilesystemStore } from '../store/localFilesystemStore';
+import { executeFilesystemTool, isFilesystemTool } from '../lib/localFilesystem';
+import { resolveRemoteToolCall, rejectRemoteToolCall, getPendingRemoteCalls } from '../services/remoteToolService';
 import { buildVsCodeOpenUrl } from '../lib/vscodeLink';
 import { getWiringDiagram } from '../services/circuitService';
 import { animationUrl } from '../services/animationService';
@@ -22,50 +24,35 @@ const CAD_WRITE_TOOLS = new Set([
   'fillet_part', 'chamfer_part',
 ]);
 
-// Whenever this turn's tool calls wrote or edited a file, pull the real VS
-// Code Server tab to the front and deep-link it straight to that file (or
-// all of them, if several were touched), instead of making the user hunt
-// for the "VS Code" tab and open it themselves. The workbench is also
-// re-rooted at this project's own .code-workspace file (see
-// buildVsCodeOpenUrl's `workspace` param), so the explorer shows only this
-// project's files under its actual project name, not the whole Anvil source
-// tree or the raw project id the sandbox folder is named after on disk.
-async function openTouchedFiles(toolCalls: ToolCall[] | undefined, projectId: string) {
-  const paths = Array.from(
-    new Set(
-      (toolCalls || [])
-        .filter((c) => FILE_WRITE_TOOLS.has(c.name) && typeof c.args?.path === 'string')
-        .map((c) => c.args.path as string)
-    )
-  );
-  if (paths.length === 0) return;
+// Whenever this turn's tool calls wrote or edited a file, pull the embedded
+// VS Code: tab to the selected project folder so the user sees the whole
+// directory, not just a single file. The absolute path is supplied separately
+// because the File System Access API does not expose full paths.
+function openTouchedFiles(toolCalls: ToolCall[] | undefined) {
+  const written = (toolCalls || []).some((c) => FILE_WRITE_TOOLS.has(c.name) && typeof c.args?.path === 'string');
+  if (!written) return;
 
-  const absPaths: string[] = [];
-  for (const path of paths) {
-    try {
-      const { abs_path } = await resolveWorkspacePath(path);
-      absPaths.push(abs_path);
-    } catch {
-      // File may have been removed since, or lies outside the allowed root.
-    }
-  }
-  if (absPaths.length === 0) return;
-
-  let workspaceAbsPath: string | undefined;
-  try {
-    workspaceAbsPath = (await resolveWorkspacePath(`backend/sandbox_project/${projectId}.code-workspace`)).abs_path;
-  } catch {
-    // Falls back to opening the file(s) without re-rooting the explorer.
+  const rootPath = useLocalFilesystemStore.getState().rootPath;
+  if (!rootPath) {
+    // Picking a folder now also prompts for this path in the same step (see
+    // localFilesystemStore's pickRoot), but anyone who picked a folder
+    // before that fix — or dismissed the prompt — would otherwise see the
+    // VS Code tab silently never open with no indication why.
+    useProjectStore.getState().addMessage(
+      'assistant',
+      "I wrote the file, but couldn't open it in VS Code — no local folder path is set. Open Settings (the printer icon) and enter the absolute path to your project folder."
+    );
+    return;
   }
 
-  const url = buildVsCodeOpenUrl(absPaths, workspaceAbsPath);
   const { tabs, addTab, updateTab, setActiveTab } = useWorkspaceStore.getState();
+  const codeServerUrl = buildVsCodeOpenUrl([], undefined, rootPath);
   const existing = tabs.find((t) => t.type === 'codeserver');
   if (existing) {
-    updateTab(existing.id, { url });
+    updateTab(existing.id, { url: codeServerUrl });
     setActiveTab(existing.id);
   } else {
-    addTab({ title: 'VS Code', type: 'codeserver', url });
+    addTab({ title: 'VS Code', type: 'codeserver', url: codeServerUrl });
   }
 }
 
@@ -265,23 +252,51 @@ export default function RightAgentPanel() {
       // for the whole streamed turn to end.
       const toolCallsSoFar: ToolCall[] = [];
 
+      const resolveFilesystemCall = async (call: ToolCall) => {
+        const root = useLocalFilesystemStore.getState().rootHandle;
+        if (!root) {
+          await rejectRemoteToolCall(call.id, 'No local project folder selected. Open Settings and choose a project folder.');
+          return;
+        }
+        const path = typeof call.args?.path === 'string' ? call.args.path : '';
+        // The backend emits ADK's tool-call id, but the remote filesystem
+        // adapter registered the call under its own UUID. Poll pending calls
+        // to find the matching remote call id by tool name + path.
+        let remoteId: string | undefined;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const pending = await getPendingRemoteCalls();
+          remoteId = pending.find((p) => p.tool === call.name && p.path === path)?.call_id;
+          if (remoteId) break;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        if (!remoteId) {
+          await rejectRemoteToolCall(call.id, 'Backend did not register the filesystem call — is the remote adapter loaded?');
+          return;
+        }
+        try {
+          const result = await executeFilesystemTool(root, call);
+          await resolveRemoteToolCall(remoteId, result);
+        } catch (err: any) {
+          await rejectRemoteToolCall(remoteId, err?.message || String(err));
+        }
+      };
+
       const data = await chatProjectStream(project.id, text, {
         onToolCall: (call) => {
           toolCallsSoFar.push(call);
           appendToolCall(call);
+
+          if (isFilesystemTool(call)) {
+            resolveFilesystemCall(call).catch(() => {});
+          }
         },
         onToolResult: (id, result) => {
           const idx = toolCallsSoFar.findIndex((c) => c.id === id);
           if (idx !== -1) toolCallsSoFar[idx] = { ...toolCallsSoFar[idx], result };
           updateToolCallResult(id, result);
-          // Several write_file calls in one turn tend to land within
-          // milliseconds of each other. Re-navigating the embedded VS Code
-          // iframe on every single one forces a full reload/blank flash each
-          // time — wait briefly for the burst to settle, then open once with
-          // every file touched so far instead of once per file.
           if (codeServerFlushRef.current) clearTimeout(codeServerFlushRef.current);
           codeServerFlushRef.current = setTimeout(() => {
-            openTouchedFiles(toolCallsSoFar, project.id);
+            openTouchedFiles(toolCallsSoFar);
           }, 400);
           openCircuitViewer(toolCallsSoFar, project.id);
           openAnimationViewer(toolCallsSoFar, project.id);

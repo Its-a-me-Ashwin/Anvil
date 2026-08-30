@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Central manifest of tool adapters available to the agent.
 
 This is the single source of truth for "what can the agent touch." Every
@@ -27,7 +29,7 @@ ADAPTERS: list[AdapterEntry] = [
     AdapterEntry(
         name="filesystem",
         description="Read/write/list files in the active project directory only.",
-        backing="mcp",
+        backing="custom",
         scope=[
             "read_text_file",
             "write_file",

@@ -41,7 +41,7 @@ import agent as anvil_agent
 from adapters.animation.adapter import animation_path
 from adapters.cad.assembly import Assembly
 from adapters.circuit.adapter import read_wiring_diagram
-from adapters.filesystem.adapter import PROJECT_DIR
+from adapters.remote_call_manager import get_pending_calls, get_remote_call_id, reject_call, resolve_call
 from adapters.state.adapter import read_project_summary, remove_skill_statement
 
 logging.basicConfig(level=logging.INFO)
@@ -183,20 +183,6 @@ def _project_sandbox_dir(project_id: str) -> Path:
     d = BACKEND_DIR / "sandbox_project" / project_id
     d.mkdir(parents=True, exist_ok=True)
     return d
-
-
-def _write_project_workspace_file(project_id: str, project_name: str) -> Path:
-    """The sandbox folder is physically named after the stable project id
-    (names can collide, contain characters invalid on disk, or get
-    auto-renamed after the first turn) — a .code-workspace file is what lets
-    the embedded VS Code tab display the project's actual name instead of
-    that id, without needing to rename anything on disk."""
-    sandbox_dir = _project_sandbox_dir(project_id)
-    workspace_file = BACKEND_DIR / "sandbox_project" / f"{project_id}.code-workspace"
-    workspace_file.write_text(
-        json.dumps({"folders": [{"path": str(sandbox_dir), "name": project_name}]})
-    )
-    return workspace_file
 
 
 # -----------------------------------------------------------------------------
@@ -589,21 +575,27 @@ async def get_project_animation(project_id: str, filename: str) -> FileResponse:
     return FileResponse(path, media_type="video/mp4", filename=path.name)
 
 
-@app.get("/workspace/resolve")
-async def resolve_workspace_path(path: str) -> dict:
-    """Resolve a (possibly relative) path the agent's filesystem tools just
-    touched to an absolute path on disk, so the frontend can deep-link the
-    embedded VS Code Server iframe straight to that file."""
-    def _resolve() -> str:
-        target = (PROJECT_DIR / path).resolve()
-        if not target.is_relative_to(PROJECT_DIR):
-            raise HTTPException(status_code=403, detail="Path escapes project directory")
-        if not target.exists():
-            raise HTTPException(status_code=404, detail="Path not found")
-        return str(target)
+class ToolResultRequest(BaseModel):
+    result: dict | str | None = None
+    error: str | None = None
 
-    abs_path = await asyncio.to_thread(_resolve)
-    return {"path": path, "abs_path": abs_path}
+
+@app.get("/tool-results/pending")
+async def pending_tool_results() -> dict:
+    """Return remote filesystem tool calls that are still waiting for the frontend."""
+    return {"pending": get_pending_calls()}
+
+
+@app.post("/tool-results/{call_id}")
+async def post_tool_result(call_id: str, req: ToolResultRequest) -> dict:
+    """Resolve a remote filesystem tool call from the frontend."""
+    if req.error:
+        if not reject_call(call_id, req.error):
+            raise HTTPException(status_code=404, detail="Unknown call id")
+    else:
+        if not resolve_call(call_id, req.result if req.result is not None else {}):
+            raise HTTPException(status_code=404, detail="Unknown call id")
+    return {"ok": True}
 
 
 def _sse(event: str, data: dict) -> str:
@@ -632,7 +624,6 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingRes
         session_id = session.id
         await doc_ref.update({"session_id": session_id})
 
-    _write_project_workspace_file(project_id, project.get("name") or "New Project")
     content = types.Content(role="user", parts=[types.Part(text=req.message)])
 
     # Streamed as Server-Sent Events so the frontend can show each tool call
@@ -663,15 +654,21 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingRes
                 if getattr(part, "function_call", None):
                     fc = part.function_call
                     call_id = fc.id or fc.name
+                    args = dict(fc.args or {})
                     # In SSE streaming mode, ADK can re-emit the same already-
                     # complete function_call across more than one event (an
                     # intermediate one and the consolidated one) — only act on
                     # the first sighting of a given call id.
                     if call_id not in tool_calls:
-                        info = ToolCallInfo(id=call_id, name=fc.name, args=dict(fc.args or {}))
+                        # For remote filesystem tools, swap the ADK call id for
+                        # the internal remote-call id so the frontend can POST
+                        # the result to /tool-results/{call_id}.
+                        remote_id = get_remote_call_id(fc.name, args)
+                        effective_id = remote_id or call_id
+                        info = ToolCallInfo(id=effective_id, name=fc.name, args=args)
                         tool_calls[call_id] = info
                         tool_call_order.append(call_id)
-                        logger.info("tool_call: %s(%s)", fc.name, dict(fc.args or {}))
+                        logger.info("tool_call: %s(%s)", fc.name, args)
                         yield _sse("tool_call", info.model_dump())
                 if getattr(part, "function_response", None):
                     fr = part.function_response
@@ -730,9 +727,6 @@ async def chat_project(project_id: str, req: ProjectChatRequest) -> StreamingRes
         if grounding_sources:
             update["sources"] = _merge_sources(project.get("sources") or [], grounding_sources)
         await doc_ref.update(update)
-        if project_name != (project.get("name") or "New Project"):
-            _write_project_workspace_file(project_id, project_name)
-
         yield _sse(
             "done",
             {
