@@ -39,14 +39,13 @@ logger = logging.getLogger(__name__)
 # Map each MCP-backed adapter name to the function that returns its connection
 # parameters.  The MCP server may expose more tools than we register; the
 # agent only sees the names listed in registry.py via tool_filter.
-_MCP_PARAMS: dict[str, str] = {
-    "filesystem": "adapters.filesystem.adapter.get_server_params",
-}
+_MCP_PARAMS: dict[str, str] = {}
 
 # Map each custom adapter name to its Python module path.  Functions listed in
 # the adapter's scope are imported by name from this module and wrapped as
 # FunctionTools.
 _CUSTOM_ADAPTERS: dict[str, str] = {
+    "filesystem": "adapters.filesystem.adapter",
     "cad": "adapters.cad.adapter",
     "circuit": "adapters.circuit.adapter",
     "printer": "adapters.printer.adapter",
@@ -155,11 +154,9 @@ def _build_instruction(ctx) -> str:
         f"The current project_id is exactly {project_id!r}. Always pass this "
         "exact string as project_id to every state tool call — never invent, "
         "guess, or reuse a project_id from a different conversation. For "
-        f"write_file/edit_file, always use a path under 'backend/sandbox_project/{project_id}/' "
-        f"(e.g. 'backend/sandbox_project/{project_id}/main.py') — never write directly to "
-        "the project root or anywhere in the Anvil source tree. This keeps every project's "
-        "generated files in their own folder, which is what the embedded VS Code tab "
-        "opens scoped to.\n\n"
+        "write_file/edit_file/read_text_file, always use a relative path under "
+        "the user's selected project root (e.g. 'main.py' or 'src/main.py'). "
+        "Never use absolute paths and never write outside the project root.\n\n"
         if project_id
         else ""
     )
