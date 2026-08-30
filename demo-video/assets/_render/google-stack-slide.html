@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    width:1920px;height:1080px;
+    background:
+      radial-gradient(circle at 50% 30%, rgba(66,133,244,0.20), transparent 46%),
+      radial-gradient(circle at 90% 90%, rgba(234,134,0,0.14), transparent 42%),
+      linear-gradient(160deg, #0d1420 0%, #10192a 55%, #0c1119 100%);
+    font-family:'IBM Plex Sans',sans-serif;position:relative;overflow:hidden;
+  }
+  .grid{
+    position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size:52px 52px;
+  }
+  .stage{position:relative;width:1920px;height:1080px;padding:0 96px;display:flex;flex-direction:column;justify-content:center;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:18px;letter-spacing:0.22em;color:#7fd4e8;text-transform:uppercase;}
+  h1{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:56px;color:#f3f6f9;margin-top:16px;}
+
+  .grid9{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:70px;}
+  .card{
+    background:linear-gradient(160deg,#151f2e,#101825);
+    border:1.5px solid #263349;border-radius:16px;padding:28px 30px;position:relative;
+  }
+  .card.req{border-color:#3a6fc4;box-shadow:0 0 40px rgba(66,133,244,0.12);}
+  .card.bonus{border-color:#c47a2e;box-shadow:0 0 40px rgba(234,134,0,0.10);}
+  .card .pill{
+    position:absolute;top:-13px;right:22px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;
+    letter-spacing:0.06em;padding:4px 11px;border-radius:20px;text-transform:uppercase;
+  }
+  .card.req .pill{background:#0d1420;color:#8fb8f7;border:1px solid #4285F4;}
+  .card.bonus .pill{background:#0d1420;color:#f4b166;border:1px solid #EA8600;}
+  .card .name{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:29px;color:#f3f6f9;}
+  .card .role{font-size:16.5px;color:#93a7ba;margin-top:10px;line-height:1.45;}
+
+  .footer{position:absolute;left:96px;bottom:56px;font-family:'IBM Plex Mono',monospace;font-size:15px;color:#5c6f82;}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="grid"></div>
+  <div class="eyebrow">All Things Agentic Hackathon 2026</div>
+  <h1>The full Google stack</h1>
+
+  <div class="grid9">
+    <div class="card req"><span class="pill">Required</span><div class="name">Gemini</div><div class="role">Agent reasoning, via the Gemini API</div></div>
+    <div class="card req"><span class="pill">Required</span><div class="name">Google ADK</div><div class="role">Agent framework — tool orchestration</div></div>
+    <div class="card req"><span class="pill">Required</span><div class="name">Cloud Run</div><div class="role">Hosts the backend, containerized</div></div>
+    <div class="card req"><span class="pill">Required</span><div class="name">Firestore</div><div class="role">Durable project state</div></div>
+    <div class="card bonus"><span class="pill">Bonus model</span><div class="name">Gemma 3</div><div class="role">Local, on-device printer vision</div></div>
+    <div class="card bonus"><span class="pill">Bonus model</span><div class="name">Veo 3.1</div><div class="role">Generated explainer video</div></div>
+    <div class="card bonus"><span class="pill">Bonus model</span><div class="name">Lyria 3</div><div class="role">Generated instrumental score</div></div>
+    <div class="card"><div class="name">Search Grounding</div><div class="role">Built-in ADK tool</div></div>
+    <div class="card"><div class="name">YouTube Data API</div><div class="role">Real tutorials, found first</div></div>
+  </div>
+
+  <div class="footer">Anvil &middot; Collaborative Partner Track</div>
+</div>
+</body>
+</html>

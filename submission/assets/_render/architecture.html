@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    width:1900px;height:1080px;
+    background:
+      radial-gradient(circle at 50% 38%, rgba(66,133,244,0.20), transparent 46%),
+      radial-gradient(circle at 8% 85%, rgba(234,134,0,0.14), transparent 42%),
+      linear-gradient(160deg, #0d1420 0%, #10192a 55%, #0c1119 100%);
+    font-family:'IBM Plex Sans',sans-serif;position:relative;overflow:hidden;
+  }
+  .grid{
+    position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size:48px 48px;
+  }
+  .stage{position:relative;width:1900px;height:1080px;}
+
+  h1{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:34px;color:#f3f6f9;position:absolute;left:56px;top:36px;}
+  .sub{position:absolute;left:56px;top:80px;font-size:15.5px;color:#8ea3b8;max-width:900px;}
+
+  .box{
+    position:absolute;background:linear-gradient(160deg,#151f2e,#101825);
+    border:1.5px solid #263349;border-radius:12px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px;
+  }
+  .box .name{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:16px;color:#f3f6f9;}
+  .box .meta{font-size:11.5px;color:#8ea3b8;margin-top:4px;line-height:1.35;}
+  .box .tag{
+    position:absolute;top:-10px;right:12px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;
+    letter-spacing:0.06em;padding:2px 7px;border-radius:4px;text-transform:uppercase;
+  }
+  .tag.cloud{background:#0d1420;color:#8fb8f7;border:1px solid #4285F4;}
+  .tag.local{background:#0d1420;color:#f4b166;border:1px solid #EA8600;}
+  .tag.browser{background:#0d1420;color:#c7cfd8;border:1px solid #5c6f82;}
+  .box.cloud{border-color:#2e4a6f;}
+  .box.local{border-color:#6f4a1f;}
+
+  .cyl{
+    position:absolute;background:linear-gradient(160deg,#151f2e,#101825);
+    border:1.5px solid #2e4a6f;border-radius:50% / 12px;
+    display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;
+  }
+  .cyl::before, .cyl::after{content:"";position:absolute;left:-1.5px;right:-1.5px;height:12px;border:1.5px solid #2e4a6f;border-radius:50%;}
+  .cyl::before{top:-7px;} .cyl::after{bottom:-7px;border-top:none;}
+  .cyl.local{border-color:#6f4a1f;} .cyl.local::before,.cyl.local::after{border-color:#6f4a1f;}
+  .cyl .name{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:14px;color:#f3f6f9;}
+
+  .hub{
+    position:absolute;left:750px;top:470px;width:400px;height:150px;
+    background:linear-gradient(160deg,#16263e,#101a2c);
+    border:2px solid #4285F4;border-radius:16px;
+    box-shadow:0 0 70px rgba(66,133,244,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  }
+  .hub .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.16em;color:#7fd4e8;text-transform:uppercase;}
+  .hub .name{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:28px;color:#f3f6f9;margin-top:6px;}
+  .hub .meta{font-size:13px;color:#a9bdd0;margin-top:6px;}
+
+  svg.wires{position:absolute;inset:0;overflow:visible;}
+  .lbl{
+    position:absolute;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;
+    color:#c3d3e2;background:#0d1420;padding:2px 8px;border-radius:5px;white-space:nowrap;border:1px solid #263349;
+  }
+
+  .callout{
+    position:absolute;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7fd4e8;
+    background:rgba(66,133,244,0.08);border:1px solid rgba(127,212,232,0.35);border-radius:10px;
+    padding:12px 16px;line-height:1.5;max-width:260px;
+  }
+  .callout.amber{color:#f4b166;background:rgba(234,134,0,0.08);border-color:rgba(244,177,102,0.35);}
+  .callout b{color:#f3f6f9;}
+
+  .legend{position:absolute;left:56px;bottom:34px;display:flex;gap:24px;align-items:center;font-size:13px;color:#a9bdd0;}
+  .legend .sw{width:13px;height:13px;border-radius:4px;display:inline-block;margin-right:7px;vertical-align:middle;border:1.5px solid;}
+  .footer{position:absolute;right:56px;bottom:34px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c6f82;}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="grid"></div>
+  <h1>Anvil — System Architecture</h1>
+  <div class="sub">Five decoupled services, orchestrated from one agent at the center. The agent never touches hardware directly.</div>
+
+  <!-- central spine -->
+  <div class="box" style="left:800px;top:150px;width:300px;height:80px;">
+    <span class="tag browser">Browser</span>
+    <div class="name">React + TypeScript</div>
+    <div class="meta">Three-pane workspace</div>
+  </div>
+
+  <div class="box cloud" style="left:800px;top:320px;width:300px;height:80px;">
+    <span class="tag cloud">Cloud Run</span>
+    <div class="name">FastAPI Backend</div>
+    <div class="meta">Chat sessions, streaming, state</div>
+  </div>
+
+  <div class="hub">
+    <div class="eyebrow">Google ADK</div>
+    <div class="name">Anvil Agent</div>
+    <div class="meta">Gemini reasoning + tool orchestration</div>
+  </div>
+
+  <!-- cloud services, fanning right, strictly in y-order so wires from the hub never cross -->
+  <div class="cyl" style="left:1330px;top:420px;width:220px;height:90px;">
+    <div class="name">Firestore</div>
+  </div>
+  <div class="box cloud" style="left:1330px;top:552px;width:220px;height:70px;">
+    <span class="tag cloud">Cloud</span>
+    <div class="name">Google Search</div>
+    <div class="meta">Grounding</div>
+  </div>
+  <div class="box cloud" style="left:1330px;top:664px;width:220px;height:64px;">
+    <span class="tag cloud">Cloud</span>
+    <div class="name">Veo 3.1</div>
+  </div>
+  <div class="box cloud" style="left:1330px;top:770px;width:220px;height:64px;">
+    <div class="name">Lyria 3</div>
+  </div>
+  <div class="box cloud" style="left:1330px;top:876px;width:220px;height:70px;">
+    <span class="tag cloud">Cloud</span>
+    <div class="name">YouTube Data API</div>
+    <div class="meta">v3</div>
+  </div>
+
+  <!-- local machine, fanning left -->
+  <div class="box local" style="left:400px;top:420px;width:230px;height:74px;">
+    <span class="tag local">Local</span>
+    <div class="name">code-server</div>
+    <div class="meta">Shared filesystem &middot; :8080</div>
+  </div>
+  <div class="box local" style="left:400px;top:560px;width:230px;height:74px;">
+    <span class="tag local">Local</span>
+    <div class="name">Workshop Bridge</div>
+    <div class="meta">Node, decoupled &middot; :3001</div>
+  </div>
+  <div class="cyl local" style="left:435px;top:700px;width:160px;height:90px;">
+    <div class="name">Bambu<br>printer</div>
+  </div>
+
+  <div class="box local" style="left:80px;top:560px;width:210px;height:64px;">
+    <span class="tag local">Local</span>
+    <div class="name">Printer camera</div>
+  </div>
+  <div class="box local" style="left:80px;top:690px;width:210px;height:74px;">
+    <div class="name">Ollama</div>
+    <div class="meta">Gemma 3 vision &middot; :11434</div>
+  </div>
+
+  <div class="callout" style="left:1560px;top:180px;">
+    <b>One adapter registry.</b> Every tool, MCP or native function, is declared once. Nothing reaches the model without an explicit, scoped entry.
+  </div>
+  <div class="callout amber" style="left:70px;top:180px;">
+    <b>Scoped writes.</b> Every write_file/edit_file call is confined to <code>sandbox_project/&lt;id&gt;/</code>, never the repo root or Anvil's own source.
+  </div>
+
+  <svg class="wires">
+    <defs>
+      <marker id="ac" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4285F4"/></marker>
+      <marker id="al" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#EA8600"/></marker>
+      <marker id="ag" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8ea3b8"/></marker>
+    </defs>
+
+    <!-- spine -->
+    <path d="M 950 230 L 950 320" fill="none" stroke="#8ea3b8" stroke-width="2" marker-end="url(#ag)" marker-start="url(#ag)"/>
+    <path d="M 950 400 L 950 470" fill="none" stroke="#8ea3b8" stroke-width="2" marker-end="url(#ag)"/>
+
+    <!-- ADK -> cloud services: one straight stub off the hub, one straight
+         vertical bus, straight branches into each target — no bezier
+         curves anywhere, so there's no possibility of S-curve wiggle -->
+    <path d="M 1150 545 L 1260 545 M 1260 465 L 1260 911
+             M 1260 465 L 1330 465 M 1260 587 L 1330 587
+             M 1260 696 L 1330 696 M 1260 911 L 1330 911"
+          fill="none" stroke="#4285F4" stroke-width="2"/>
+    <path d="M 1322 465 L 1330 465" stroke="#4285F4" stroke-width="2" marker-end="url(#ac)"/>
+    <path d="M 1322 587 L 1330 587" stroke="#4285F4" stroke-width="2" marker-end="url(#ac)"/>
+    <path d="M 1322 696 L 1330 696" stroke="#4285F4" stroke-width="2" marker-end="url(#ac)"/>
+    <path d="M 1322 911 L 1330 911" stroke="#4285F4" stroke-width="2" marker-end="url(#ac)"/>
+
+    <!-- ADK -> local machine, same straight trunk-and-branch pattern -->
+    <path d="M 750 545 L 690 545 M 690 457 L 690 597
+             M 690 457 L 630 457 M 690 597 L 630 597"
+          fill="none" stroke="#EA8600" stroke-width="2"/>
+    <path d="M 638 457 L 630 457" stroke="#EA8600" stroke-width="2" marker-end="url(#al)"/>
+    <path d="M 638 597 L 630 597" stroke="#EA8600" stroke-width="2" marker-end="url(#al)"/>
+
+    <!-- bridge -> printer -->
+    <path d="M 515 634 L 515 700" fill="none" stroke="#EA8600" stroke-width="2" marker-end="url(#al)"/>
+    <!-- camera -> ollama -->
+    <path d="M 185 624 L 185 690" fill="none" stroke="#EA8600" stroke-width="2" marker-end="url(#al)"/>
+
+    <!-- code-server <-> browser (iframe), routed along the outer left,
+         clear of the "Scoped writes" callout -->
+    <path d="M 400 445 C 400 400, 400 250, 400 200 L 800 190" fill="none" stroke="#8ea3b8" stroke-width="2" opacity="0.8" marker-end="url(#ag)" marker-start="url(#ag)"/>
+    <!-- ollama -> browser, routed further out on the far-left edge -->
+    <path d="M 80 715 L 30 715 L 30 175 L 800 175" fill="none" stroke="#EA8600" stroke-width="2" opacity="0.8" marker-end="url(#al)"/>
+  </svg>
+
+  <div class="lbl" style="left:960px;top:255px;">chat / SSE</div>
+  <div class="lbl" style="left:670px;top:445px;">filesystem MCP</div>
+  <div class="lbl" style="left:670px;top:585px;">slice + dispatch</div>
+  <div class="lbl" style="left:412px;top:280px;">iframe</div>
+  <div class="lbl" style="left:36px;top:440px;">isBedEmpty / isSpaghetti</div>
+
+  <div class="legend">
+    <span><span class="sw" style="border-color:#4285F4"></span>Google Cloud</span>
+    <span><span class="sw" style="border-color:#EA8600"></span>Local machine</span>
+    <span><span class="sw" style="border-color:#5c6f82"></span>Browser</span>
+  </div>
+  <div class="footer">Anvil · Collaborative Partner Track · All Things Agentic Hackathon 2026</div>
+</div>
+</body>
+</html>

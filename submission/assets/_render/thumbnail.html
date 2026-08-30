@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    width:1500px;height:1000px;
+    background:
+      radial-gradient(circle at 82% 30%, rgba(66,133,244,0.30), transparent 48%),
+      radial-gradient(circle at 8% 90%, rgba(234,134,0,0.18), transparent 42%),
+      linear-gradient(160deg, #0d1420 0%, #10192a 55%, #0c1119 100%);
+    font-family:'IBM Plex Mono',monospace;
+    position:relative;
+    overflow:hidden;
+  }
+  .grid{
+    position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size:52px 52px;
+  }
+  .layout{position:relative;z-index:2;height:100%;display:flex;}
+  .content{flex:0 0 55%;padding:80px 0 80px 88px;display:flex;flex-direction:column;justify-content:space-between;}
+  .eyebrow{
+    color:#7fd4e8;font-size:18px;letter-spacing:0.26em;text-transform:uppercase;font-weight:600;
+    display:flex;align-items:center;gap:16px;
+  }
+  .eyebrow::after{content:"";flex:0 0 220px;height:1px;background:rgba(127,212,232,0.35);}
+  h1{
+    font-family:'Chakra Petch',sans-serif;font-weight:700;
+    font-size:134px;color:#f3f6f9;letter-spacing:-2px;line-height:0.95;margin-top:26px;
+  }
+  .tagline{
+    font-family:'Chakra Petch',sans-serif;font-weight:600;font-size:30px;color:#b9c7d4;
+    max-width:780px;margin-top:24px;line-height:1.3;
+  }
+  .badges{display:flex;gap:14px;flex-wrap:wrap;margin-top:auto;}
+  .badge{
+    font-size:16px;font-weight:600;color:#e7edf2;
+    background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.16);
+    padding:11px 20px;border-radius:999px;letter-spacing:0.02em;
+    display:flex;align-items:center;gap:9px;
+  }
+  .badge .dot{width:8px;height:8px;border-radius:50%;background:#4285F4;}
+  .badge.amber .dot{background:#EA8600;}
+  .footer-row{margin-top:36px;}
+  .track{font-size:19px;color:#7fd4e8;letter-spacing:0.06em;font-weight:600;}
+
+  .illustration{flex:0 0 45%;position:relative;display:flex;align-items:center;justify-content:center;}
+  .illustration svg{width:100%;height:100%;overflow:visible;}
+  .cap-label{
+    position:absolute;bottom:56px;left:0;right:0;text-align:center;
+    font-size:13px;letter-spacing:0.16em;color:#7fd4e8;text-transform:uppercase;font-weight:600;
+  }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="layout">
+    <div class="content">
+      <div>
+        <div class="eyebrow">All Things Agentic Hackathon 2026</div>
+        <h1>Anvil</h1>
+        <div class="tagline">From a plain-English brief to real CAD, wiring, firmware, and a printed part.</div>
+      </div>
+      <div>
+        <div class="badges">
+          <div class="badge"><span class="dot"></span>Gemini 3.7</div>
+          <div class="badge"><span class="dot"></span>Google ADK</div>
+          <div class="badge"><span class="dot"></span>Cloud Run</div>
+          <div class="badge"><span class="dot"></span>Firestore</div>
+          <div class="badge amber"><span class="dot"></span>Veo · Lyria · Gemma</div>
+        </div>
+        <div class="footer-row">
+          <div class="track">Collaborative Partner Track</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="illustration">
+      <svg viewBox="0 0 900 800" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="hull" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#9fd8ea"/>
+            <stop offset="100%" stop-color="#4285F4"/>
+          </linearGradient>
+          <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="6"/>
+          </filter>
+        </defs>
+        <!-- shift everything +140 so the left-column pill labels (originally
+             computed with negative x) land inside the 0..900 canvas instead
+             of bleeding into the text column next door -->
+        <g transform="translate(140,0)">
+
+        <!-- ambient glow behind the rocket -->
+        <ellipse cx="300" cy="430" rx="230" ry="300" fill="#4285F4" opacity="0.10" filter="url(#soft)"/>
+
+        <!-- dashed centerline (parametric / CAD cue) -->
+        <line x1="300" y1="110" x2="300" y2="700" stroke="#5b7a94" stroke-width="1.5" stroke-dasharray="2 10" opacity="0.5"/>
+
+        <!-- nose cone (ogive) -->
+        <path d="M 230 260
+                 C 240 170, 270 115, 300 90
+                 C 330 115, 360 170, 370 260
+                 Z"
+              fill="none" stroke="url(#hull)" stroke-width="3.5" stroke-linejoin="round"/>
+
+        <!-- body tube -->
+        <rect x="230" y="260" width="140" height="330" rx="4"
+              fill="none" stroke="url(#hull)" stroke-width="3.5"/>
+
+        <!-- tube seam / avionics bay lid line -->
+        <line x1="230" y1="430" x2="370" y2="430" stroke="#6fa8c9" stroke-width="1.5" stroke-dasharray="4 6" opacity="0.5"/>
+
+        <!-- fins -->
+        <path d="M 230 520 L 175 610 L 230 590 Z" fill="none" stroke="#6fa8c9" stroke-width="3"/>
+        <path d="M 370 520 L 425 610 L 370 590 Z" fill="none" stroke="#6fa8c9" stroke-width="3"/>
+
+        <!-- diameter measurement (subdued CAD cue — deliberately quieter than the adapter labels) -->
+        <line x1="230" y1="245" x2="230" y2="230" stroke="#5b7a94" stroke-width="1.5" opacity="0.7"/>
+        <line x1="370" y1="245" x2="370" y2="230" stroke="#5b7a94" stroke-width="1.5" opacity="0.7"/>
+        <line x1="230" y1="236" x2="370" y2="236" stroke="#5b7a94" stroke-width="1.5" opacity="0.7"/>
+        <text x="300" y="222" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" fill="#5b7a94" opacity="0.85">&#216; 67mm</text>
+
+        <!-- connector traces -> Anvil's own adapters (right side) -->
+        <g stroke="#EA8600" stroke-width="2" fill="none" opacity="0.85">
+          <path d="M 370 340 H 430 V 315 H 468"/>
+          <path d="M 370 410 H 460 V 410 H 468"/>
+          <path d="M 370 480 H 430 V 505 H 468"/>
+        </g>
+        <g fill="#EA8600">
+          <circle cx="468" cy="315" r="5.5"/>
+          <circle cx="468" cy="410" r="5.5"/>
+          <circle cx="468" cy="505" r="5.5"/>
+        </g>
+
+        <!-- connector traces -> Anvil's own adapters (left side) -->
+        <g stroke="#EA8600" stroke-width="2" fill="none" opacity="0.85">
+          <path d="M 230 355 H 175 V 330 H 137"/>
+          <path d="M 230 425 H 165 V 425 H 137"/>
+          <path d="M 230 495 H 175 V 520 H 137"/>
+        </g>
+        <g fill="#EA8600">
+          <circle cx="137" cy="330" r="5.5"/>
+          <circle cx="137" cy="425" r="5.5"/>
+          <circle cx="137" cy="520" r="5.5"/>
+        </g>
+
+        <!-- adapter pill labels — bold, filled, deliberately louder than the rocket's own annotations -->
+        <g font-family="IBM Plex Mono" font-size="18" font-weight="700">
+          <!-- right column -->
+          <rect x="480" y="299" width="200" height="34" rx="17" fill="rgba(234,134,0,0.16)" stroke="#EA8600" stroke-width="1.5"/>
+          <text x="580" y="322" text-anchor="middle" fill="#ffd9ab">Parametric CAD</text>
+
+          <rect x="480" y="393" width="205" height="34" rx="17" fill="rgba(234,134,0,0.16)" stroke="#EA8600" stroke-width="1.5"/>
+          <text x="582" y="416" text-anchor="middle" fill="#ffd9ab">Wiring Diagrams</text>
+
+          <rect x="480" y="488" width="215" height="34" rx="17" fill="rgba(234,134,0,0.16)" stroke="#EA8600" stroke-width="1.5"/>
+          <text x="587" y="511" text-anchor="middle" fill="#ffd9ab">Firmware + Tests</text>
+
+          <!-- left column -->
+          <rect x="-70" y="313" width="207" height="34" rx="17" fill="rgba(234,134,0,0.16)" stroke="#EA8600" stroke-width="1.5"/>
+          <text x="33" y="336" text-anchor="middle" fill="#ffd9ab">Datasheet Lookup</text>
+
+          <rect x="-70" y="408" width="207" height="34" rx="17" fill="rgba(234,134,0,0.16)" stroke="#EA8600" stroke-width="1.5"/>
+          <text x="33" y="431" text-anchor="middle" fill="#ffd9ab">Firestore State</text>
+
+          <rect x="-70" y="503" width="207" height="34" rx="17" fill="rgba(234,134,0,0.16)" stroke="#EA8600" stroke-width="1.5"/>
+          <text x="33" y="526" text-anchor="middle" fill="#ffd9ab">YouTube Search</text>
+        </g>
+
+        <!-- build plate / print outcome cue -->
+        <line x1="150" y1="700" x2="450" y2="700" stroke="#5b7a94" stroke-width="2"/>
+        <line x1="150" y1="700" x2="130" y2="720" stroke="#5b7a94" stroke-width="1.5" opacity="0.6"/>
+        <line x1="190" y1="700" x2="170" y2="720" stroke="#5b7a94" stroke-width="1.5" opacity="0.6"/>
+        <line x1="230" y1="700" x2="210" y2="720" stroke="#5b7a94" stroke-width="1.5" opacity="0.6"/>
+        <line x1="270" y1="700" x2="250" y2="720" stroke="#5b7a94" stroke-width="1.5" opacity="0.6"/>
+        <line x1="310" y1="700" x2="290" y2="720" stroke="#5b7a94" stroke-width="1.5" opacity="0.6"/>
+        <line x1="350" y1="700" x2="330" y2="720" stroke="#5b7a94" stroke-width="1.5" opacity="0.6"/>
+        <line x1="390" y1="700" x2="370" y2="720" stroke="#5b7a94" stroke-width="1.5" opacity="0.6"/>
+        <line x1="430" y1="700" x2="410" y2="720" stroke="#5b7a94" stroke-width="1.5" opacity="0.6"/>
+
+        <rect x="255" y="695" width="90" height="30" rx="15" fill="rgba(234,134,0,0.16)" stroke="#EA8600" stroke-width="1.5"/>
+        <text x="300" y="716" text-anchor="middle" font-family="IBM Plex Mono" font-size="15" font-weight="700" fill="#ffd9ab">Print</text>
+
+        </g>
+      </svg>
+      <div class="cap-label">Agent Orchestration &middot; End to End</div>
+    </div>
+  </div>
+</body>
+</html>
