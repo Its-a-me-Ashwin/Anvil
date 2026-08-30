@@ -55,7 +55,12 @@ function nodeDimensions(m: WiringModule, connections: WiringConnection[]) {
   };
 }
 
-export async function layoutWiringDiagram(data: WiringDiagramData): Promise<{ nodes: Node<WiringNodeData>[]; edges: Edge[] }> {
+export async function layoutWiringDiagram(rawData: WiringDiagramData): Promise<{ nodes: Node<WiringNodeData>[]; edges: Edge[] }> {
+  // Malformed diagrams (e.g. an agent-created module missing `pins`) used to
+  // crash this whole layout pass with "is not iterable" and take the app
+  // down with no way to recover — normalize once here so every module has a
+  // real array before anything below touches `.pins`.
+  const data: WiringDiagramData = { ...rawData, modules: rawData.modules.map((m) => ({ ...m, pins: m.pins || [] })) };
   const modMap = new Map(data.modules.map((m) => [m.id, m]));
 
   const children = data.modules.map((m) => {

@@ -14,7 +14,7 @@ export default memo(function WiringModuleNode({ data, selected }: NodeProps<Node
       <div className="absolute inset-0 flex items-center justify-center px-6">
         <span className="text-sm font-medium text-anvil-text text-center truncate w-full">{module.name}</span>
       </div>
-      {module.pins.map((p) => {
+      {(module.pins || []).map((p) => {
         const side = sides[p] ?? 'right';
         const pos = ports[p] ?? { x: side === 'left' ? 0 : width, y: height / 2 };
         const labelStyle = side === 'left' ? { left: 10, top: pos.y - 8 } : { right: 10, top: pos.y - 8 };

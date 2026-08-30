@@ -17,6 +17,7 @@ import WiringDiagram from './wiring/WiringDiagram';
 import type { WiringDiagramData } from './wiring/wiringTypes';
 import UnknownViewer from './UnknownViewer';
 import RtspViewer from './RtspViewer';
+import TabErrorBoundary from './TabErrorBoundary';
 
 const icons: Record<string, React.ElementType> = {
   web: Globe,
@@ -233,7 +234,8 @@ export default function CenterWorkspace() {
         )}
 
         {activeTab ? (
-          <div key={activeTab.id} className="h-full w-full">
+          <TabErrorBoundary key={activeTab.id} onClose={() => closeTab(activeTab.id)}>
+          <div className="h-full w-full">
             {activeTab.type === 'web' && <WebViewer url={activeTab.url || 'https://example.com'} onUrlChange={(url) => updateTab(activeTab.id, { url })} />}
             {activeTab.type === 'code' && <CodeEditor content={activeTab.content} fileName={activeTab.fileName} onChange={(content) => updateTab(activeTab.id, { content })} />}
             {activeTab.type === 'codeserver' && <CodeServerWorkspace url={activeTab.url} />}
@@ -249,6 +251,7 @@ export default function CenterWorkspace() {
             {activeTab.type === 'rtsp' && <RtspViewer url={activeTab.url || ''} onUrlChange={(url) => updateTab(activeTab.id, { url })} />}
             {activeTab.type === 'unknown' && <UnknownViewer title={activeTab.title} />}
           </div>
+          </TabErrorBoundary>
         ) : (
           <div className="h-full w-full flex items-center justify-center text-anvil-muted">
             <div className="text-center">

@@ -13,13 +13,13 @@ export function validateWiringData(data: WiringDiagramData): WiringValidationRes
     if (ids.has(m.id)) errors.push(`Duplicate module id: ${m.id}`);
     ids.add(m.id);
     const pins = new Set<string>();
-    for (const p of m.pins) {
+    for (const p of m.pins || []) {
       if (pins.has(p)) errors.push(`Duplicate pin "${p}" in module ${m.id}`);
       pins.add(p);
     }
   }
 
-  const modPins = new Map(data.modules.map((m) => [m.id, new Set(m.pins)]));
+  const modPins = new Map(data.modules.map((m) => [m.id, new Set(m.pins || [])]));
   const seen = new Set<string>();
 
   data.connections.forEach(([src, srcPin, tgt, tgtPin], i) => {

@@ -62,6 +62,13 @@ def create_wiring_diagram(project: str, modules: list[dict], connections: list[d
     connections: one object per wire, e.g.
       {"from_module": "mcu", "from_pin": "TX", "to_module": "gps", "to_pin": "RX", "color": "blue"}
     (color is optional)."""
+    # validate_wiring_data defaults a missing `pins` key to [] for validation
+    # purposes only — it never writes that default back onto the module
+    # itself. Without this, a module the agent passed without `pins` would
+    # pass validation but persist with the key missing entirely, which then
+    # crashes the frontend's wiring renderer (every consumer assumes
+    # module.pins is always a real array).
+    modules = [{**m, "pins": m.get("pins") or []} for m in modules]
     tuple_connections = _connections_to_tuples(connections)
     data = {"modules": modules, "connections": tuple_connections}
     validation = validate_wiring_data(data)
