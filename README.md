@@ -26,8 +26,8 @@
 
 <div align="center">
 
-| [🧩 The problem](#the-problem) | [✨ What it does](#-what-anvil-does) | [🏗️ Architecture](#-architecture) | [🧠 Google stack](#-the-google-ai--cloud-stack) | [🚀 Getting started](#-getting-started) | [📁 Structure](#-project-structure) | [✅ Compliance](#-hackathon-compliance) |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| [🧩 The problem](#the-problem) | [✨ What it does](#-what-anvil-does) | [🏗️ Architecture](#-architecture) | [🧠 Google stack](#-the-google-ai--cloud-stack) | [🚀 Getting started](#-getting-started) | [📁 Structure](#-project-structure) |
+|:---:|:---:|:---:|:---:|:---:|:---:|
 
 </div>
 
@@ -368,19 +368,6 @@ Anvil/
 ├── deploy.md                    Cloud Run + Firestore deployment guide
 └── local-deploy.md              Full local spin-up walkthrough
 ```
-
-## ✅ Hackathon compliance
-
-| Requirement | Status |
-|---|---|
-| Gemini 3.5+ via Gemini API / Vertex AI | ✅ — using Gemini 3.7 |
-| Google Agent Framework (ADK) | ✅ |
-| Google Cloud infra (Cloud Run + Firestore) | ✅ |
-| Hosted project URL | ✅ — see [Live Demo](#) |
-| Architecture diagram | ✅ — [above](#-architecture) |
-| Step-by-step spin-up instructions | ✅ — [Getting Started](#-getting-started) |
-| Demo video (≤4 min, proves Cloud Run) | ✅ — [Watch it](#) |
-| Additional Google AI models (bonus) | ✅ — Gemma 3, Veo 3.1, Lyria 3 |
 
 ## 🤝 Why Collaborative Partner
 
