@@ -33,10 +33,20 @@ function openTouchedFiles(toolCalls: ToolCall[] | undefined) {
   if (!written) return;
 
   const rootPath = useLocalFilesystemStore.getState().rootPath;
-  if (!rootPath) return;
+  if (!rootPath) {
+    // Picking a folder now also prompts for this path in the same step (see
+    // localFilesystemStore's pickRoot), but anyone who picked a folder
+    // before that fix — or dismissed the prompt — would otherwise see the
+    // VS Code tab silently never open with no indication why.
+    useProjectStore.getState().addMessage(
+      'assistant',
+      "I wrote the file, but couldn't open it in VS Code — no local folder path is set. Open Settings (the printer icon) and enter the absolute path to your project folder."
+    );
+    return;
+  }
 
   const { tabs, addTab, updateTab, setActiveTab } = useWorkspaceStore.getState();
-  const codeServerUrl = buildVsCodeOpenUrl([], rootPath);
+  const codeServerUrl = buildVsCodeOpenUrl([], undefined, rootPath);
   const existing = tabs.find((t) => t.type === 'codeserver');
   if (existing) {
     updateTab(existing.id, { url: codeServerUrl });

@@ -16,10 +16,18 @@ const CODE_SERVER_URL = import.meta.env.VITE_CODE_SERVER_URL || 'http://localhos
 // is the layer that decouples the two. Also verified against `code
 // serve-web`: the tab title and explorer both switch to just that folder,
 // under the given display name.
-export function buildVsCodeOpenUrl(absPaths: string[], workspaceAbsPath?: string): string {
+//
+// `folderAbsPath` is the plain-folder equivalent, for callers that only have
+// a raw directory (no .code-workspace file to point at — e.g. no backend
+// access to write one there). Passing a bare folder path as `workspace`
+// instead of `folder` looks like it works (no error) but silently shows
+// "No Folder Opened" — `workspace` is parsed strictly as a .code-workspace
+// file, not a directory. At most one of the two should be given.
+export function buildVsCodeOpenUrl(absPaths: string[], workspaceAbsPath?: string, folderAbsPath?: string): string {
   const payload = absPaths.map((p) => ['openFile', `vscode-remote://${encodeURI(p)}`]);
   const params = new URLSearchParams();
   if (workspaceAbsPath) params.set('workspace', `vscode-remote://${encodeURI(workspaceAbsPath)}`);
+  else if (folderAbsPath) params.set('folder', `vscode-remote://${encodeURI(folderAbsPath)}`);
   params.set('payload', JSON.stringify(payload));
   return `${CODE_SERVER_URL}/?${params.toString()}`;
 }

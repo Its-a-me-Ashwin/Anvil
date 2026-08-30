@@ -80,6 +80,22 @@ export const useLocalFilesystemStore = create<LocalFilesystemState>((set) => ({
     const handle = await window.showDirectoryPicker();
     set({ rootHandle: handle, rootName: handle.name, isReady: true });
     await saveHandle(handle);
+
+    // The picker only ever gives us the folder's name ("test"), never its
+    // real absolute path — that's a deliberate browser restriction, not
+    // something we can read off the handle. Ask for it right here, in the
+    // same action as picking the folder, so it's never a separate step the
+    // user forgets — which is exactly what silently broke the embedded VS
+    // Code tab before this fix.
+    const suggested = `.../${handle.name}`;
+    const typed = window.prompt(
+      `To open "${handle.name}" in the embedded VS Code tab, enter its full absolute path on your machine (e.g. /Users/you/${handle.name}):`,
+      suggested
+    );
+    if (typed && typed.trim() && typed.trim() !== suggested) {
+      set({ rootPath: typed.trim() });
+      saveRootPath(typed.trim());
+    }
   },
 
   setRoot: (handle, path) => {
