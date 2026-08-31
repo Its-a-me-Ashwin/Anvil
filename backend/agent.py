@@ -340,7 +340,7 @@ def _build_instruction(ctx) -> str:
 
 
 def build_agent(
-    model: str = "gemini-3.7-flash",
+    model: str = "gemini-3.6-flash",
     tools: list | None = None,
 ) -> Agent:
     """Build the Anvil engineering partner agent."""
