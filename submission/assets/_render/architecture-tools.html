@@ -8,7 +8,7 @@
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   body{
-    width:1780px;height:1420px;
+    width:1920px;height:1080px;
     background:
       radial-gradient(circle at 8% 30%, rgba(66,133,244,0.22), transparent 45%),
       radial-gradient(circle at 92% 75%, rgba(234,134,0,0.14), transparent 42%),
@@ -22,48 +22,48 @@
       linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
     background-size:48px 48px;
   }
-  .stage{position:relative;width:1780px;height:1420px;}
+  .stage{position:relative;width:1920px;height:1080px;}
 
-  h1{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:36px;color:#f3f6f9;position:absolute;left:64px;top:44px;}
-  .sub{position:absolute;left:64px;top:92px;font-size:16px;color:#8ea3b8;max-width:1000px;}
+  h1{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:34px;color:#f3f6f9;position:absolute;left:56px;top:36px;}
+  .sub{position:absolute;left:56px;top:82px;font-size:15px;color:#8ea3b8;max-width:1100px;}
 
   .hub{
-    position:absolute;left:64px;top:170px;width:400px;height:1100px;
+    position:absolute;left:60px;top:190px;width:400px;height:740px;
     background:linear-gradient(160deg,#132238,#0f1a2b);
     border:2px solid #4285F4;border-radius:18px;
     box-shadow:0 0 60px rgba(66,133,244,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:36px;
   }
-  .hub .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:0.18em;color:#7fd4e8;text-transform:uppercase;margin-bottom:18px;}
-  .hub h2{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:34px;color:#f3f6f9;line-height:1.15;}
-  .hub .sub2{font-size:16px;color:#a9bdd0;margin-top:14px;line-height:1.5;}
-  .hub .stat{margin-top:38px;font-family:'IBM Plex Mono',monospace;font-size:14px;color:#7fd4e8;border-top:1px solid rgba(127,212,232,0.25);padding-top:22px;width:100%;}
-  .hub .stat b{color:#f3f6f9;font-size:22px;display:block;font-weight:600;}
+  .hub .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:0.18em;color:#7fd4e8;text-transform:uppercase;margin-bottom:16px;}
+  .hub h2{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:31px;color:#f3f6f9;line-height:1.15;}
+  .hub .sub2{font-size:14.5px;color:#a9bdd0;margin-top:13px;line-height:1.5;}
+  .hub .stat{margin-top:32px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#7fd4e8;border-top:1px solid rgba(127,212,232,0.25);padding-top:20px;width:100%;}
+  .hub .stat b{color:#f3f6f9;font-size:21px;display:block;font-weight:600;}
 
   .card{
-    position:absolute;left:664px;width:1052px;height:120px;
+    position:absolute;width:570px;height:170px;
     background:linear-gradient(160deg,#151f2e,#101825);
     border:1.5px solid #263349;border-radius:14px;
-    padding:16px 22px;display:flex;flex-direction:column;justify-content:center;
+    padding:15px 20px;display:flex;flex-direction:column;justify-content:center;
   }
   .card::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:4px;border-radius:3px;}
   .card.mcp::before{background:#4285F4;}
   .card.custom::before{background:#EA8600;}
   .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
-  .card-name{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:20px;color:#f3f6f9;}
-  .tag{font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:0.06em;padding:3px 9px;border-radius:5px;text-transform:uppercase;}
+  .card-name{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:19px;color:#f3f6f9;}
+  .tag{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.06em;padding:3px 8px;border-radius:5px;text-transform:uppercase;}
   .tag.mcp{background:rgba(66,133,244,0.14);color:#8fb8f7;border:1px solid rgba(66,133,244,0.5);}
   .tag.custom{background:rgba(234,134,0,0.14);color:#f4b166;border:1px solid rgba(234,134,0,0.5);}
-  .card-desc{font-size:13.5px;color:#8ea3b8;line-height:1.4;margin-bottom:9px;}
+  .card-desc{font-size:13px;color:#8ea3b8;line-height:1.4;margin-bottom:8px;}
   .chips{display:flex;flex-wrap:wrap;gap:6px;}
-  .chip{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#c3d3e2;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:5px;padding:3px 8px;}
+  .chip{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c3d3e2;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:5px;padding:3px 7px;}
   .chip.more{color:#6b7f93;font-style:italic;border-style:dashed;}
 
   svg.wires{position:absolute;inset:0;overflow:visible;}
 
-  .legend{position:absolute;left:64px;bottom:40px;display:flex;gap:26px;align-items:center;font-size:13.5px;color:#a9bdd0;}
+  .legend{position:absolute;left:56px;bottom:32px;display:flex;gap:26px;align-items:center;font-size:13px;color:#a9bdd0;}
   .legend .sw{width:14px;height:14px;border-radius:4px;display:inline-block;margin-right:8px;vertical-align:middle;}
-  .footer{position:absolute;right:64px;bottom:40px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#5c6f82;}
+  .footer{position:absolute;right:56px;bottom:32px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5c6f82;}
 </style>
 </head>
 <body>
@@ -79,50 +79,51 @@
     <div class="stat"><b>65</b>tools across 8 adapters</div>
   </div>
 
-  <!-- 8 adapter cards, single column, one wire each = zero possible crossings -->
-  <div class="card mcp" style="top:170px;">
+  <!-- column 1: near column, straight wires from the hub's right edge -->
+  <div class="card mcp" style="left:650px;top:190px;">
     <div class="card-head"><span class="card-name">filesystem</span><span class="tag mcp">MCP</span></div>
     <div class="card-desc">Read/write/list files in the active project directory only.</div>
     <div class="chips"><span class="chip">read_text_file</span><span class="chip">write_file</span><span class="chip">edit_file</span><span class="chip more">+3 more</span></div>
   </div>
 
-  <div class="card custom" style="top:314px;">
+  <div class="card custom" style="left:650px;top:380px;">
     <div class="card-head"><span class="card-name">cad</span><span class="tag custom">Custom</span></div>
     <div class="card-desc">Parametric multi-part assemblies via build123d — primitives, booleans, fillets, patterns.</div>
     <div class="chips"><span class="chip">add_tube</span><span class="chip">boolean_op</span><span class="chip">circular_pattern</span><span class="chip more">+14 more</span></div>
   </div>
 
-  <div class="card custom" style="top:458px;">
+  <div class="card custom" style="left:650px;top:570px;">
     <div class="card-head"><span class="card-name">circuit</span><span class="tag custom">Custom</span></div>
     <div class="card-desc">Create, read, update, and delete wiring diagrams for the circuit workspace.</div>
     <div class="chips"><span class="chip">create_wiring_diagram</span><span class="chip">get_wiring_diagram</span><span class="chip more">+3 more</span></div>
   </div>
 
-  <div class="card custom" style="top:602px;">
+  <div class="card custom" style="left:650px;top:760px;">
     <div class="card-head"><span class="card-name">printer</span><span class="tag custom">Custom</span></div>
     <div class="card-desc">Slice models with Bambu Studio and send them to a local Bambu printer.</div>
     <div class="chips"><span class="chip">slice_model</span><span class="chip">send_to_printer</span><span class="chip">check_bridge_health</span><span class="chip more">+2 more</span></div>
   </div>
 
-  <div class="card custom" style="top:746px;">
+  <!-- column 2: far column, fed by a bus routed above column 1 -->
+  <div class="card custom" style="left:1310px;top:190px;">
     <div class="card-head"><span class="card-name">state</span><span class="tag custom">Custom</span></div>
     <div class="card-desc">Firestore-backed project state: objective, constraints, inventory, milestones, decisions, skills.</div>
-    <div class="chips"><span class="chip">set_project_objective</span><span class="chip">add_constraint</span><span class="chip">record_decision</span><span class="chip more">+24 more</span></div>
+    <div class="chips"><span class="chip">set_project_objective</span><span class="chip">add_constraint</span><span class="chip more">+26 more</span></div>
   </div>
 
-  <div class="card custom" style="top:890px;">
+  <div class="card custom" style="left:1310px;top:380px;">
     <div class="card-head"><span class="card-name">animation</span><span class="tag custom">Custom</span></div>
     <div class="card-desc">Generate a short explainer animation via Veo, scored automatically by Lyria.</div>
     <div class="chips"><span class="chip">generate_animation</span></div>
   </div>
 
-  <div class="card custom" style="top:1034px;">
+  <div class="card custom" style="left:1310px;top:570px;">
     <div class="card-head"><span class="card-name">youtube_search</span><span class="tag custom">Custom</span></div>
     <div class="card-desc">Find an existing YouTube tutorial — the free, preferred alternative to generating one.</div>
     <div class="chips"><span class="chip">find_tutorial_video</span></div>
   </div>
 
-  <div class="card custom" style="top:1178px;">
+  <div class="card custom" style="left:1310px;top:760px;">
     <div class="card-head"><span class="card-name">datasheet</span><span class="tag custom">Custom</span></div>
     <div class="card-desc">Look up an electronics datasheet on Adafruit's own Learn system.</div>
     <div class="chips"><span class="chip">find_datasheet</span></div>
@@ -130,18 +131,38 @@
 
   <svg class="wires">
     <defs>
-      <marker id="dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5">
-        <circle cx="5" cy="5" r="4" fill="#4285F4"/>
-      </marker>
+      <marker id="d1" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5"><circle cx="5" cy="5" r="4" fill="#4285F4"/></marker>
+      <marker id="d2" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5"><circle cx="5" cy="5" r="4" fill="#EA8600"/></marker>
     </defs>
-    <path d="M 464 230 C 560 230, 560 230, 664 230" fill="none" stroke="#4285F4" stroke-width="2" opacity="0.7" marker-end="url(#dot)"/>
-    <path d="M 464 374 C 560 374, 560 374, 664 374" fill="none" stroke="#EA8600" stroke-width="2" opacity="0.7" marker-end="url(#dot)"/>
-    <path d="M 464 518 C 560 518, 560 518, 664 518" fill="none" stroke="#EA8600" stroke-width="2" opacity="0.7" marker-end="url(#dot)"/>
-    <path d="M 464 662 C 560 662, 560 662, 664 662" fill="none" stroke="#EA8600" stroke-width="2" opacity="0.7" marker-end="url(#dot)"/>
-    <path d="M 464 806 C 560 806, 560 806, 664 806" fill="none" stroke="#EA8600" stroke-width="2" opacity="0.7" marker-end="url(#dot)"/>
-    <path d="M 464 950 C 560 950, 560 950, 664 950" fill="none" stroke="#EA8600" stroke-width="2" opacity="0.7" marker-end="url(#dot)"/>
-    <path d="M 464 1094 C 560 1094, 560 1094, 664 1094" fill="none" stroke="#EA8600" stroke-width="2" opacity="0.7" marker-end="url(#dot)"/>
-    <path d="M 464 1238 C 560 1238, 560 1238, 664 1238" fill="none" stroke="#EA8600" stroke-width="2" opacity="0.7" marker-end="url(#dot)"/>
+
+    <!-- column 1: neutral trunk (it's a mix of MCP + Custom, so no single
+         color is accurate for it) + one branch stub colored to match each
+         card's own actual backing type -->
+    <path d="M 460 560 L 600 560 M 600 275 L 600 845"
+          fill="none" stroke="#5c6f82" stroke-width="2"/>
+    <path d="M 600 275 L 650 275" stroke="#4285F4" stroke-width="2"/>
+    <path d="M 600 465 L 650 465" stroke="#EA8600" stroke-width="2"/>
+    <path d="M 600 655 L 650 655" stroke="#EA8600" stroke-width="2"/>
+    <path d="M 600 845 L 650 845" stroke="#EA8600" stroke-width="2"/>
+    <circle cx="650" cy="275" r="4" fill="#4285F4"/>
+    <circle cx="650" cy="465" r="4" fill="#EA8600"/>
+    <circle cx="650" cy="655" r="4" fill="#EA8600"/>
+    <circle cx="650" cy="845" r="4" fill="#EA8600"/>
+
+    <!-- column 2: every card here really is Custom, so the uniform amber
+         trunk is accurate as drawn — routed on a rail ABOVE column 1's
+         cards (y=160, clear of column 1's top edge at y=190), then down
+         into a second vertical bus between the two columns, so the wire
+         never crosses column 1 -->
+    <path d="M 260 190 L 260 160 L 1265 160 L 1265 275
+             M 1265 275 L 1265 845
+             M 1265 275 L 1310 275 M 1265 465 L 1310 465
+             M 1265 655 L 1310 655 M 1265 845 L 1310 845"
+          fill="none" stroke="#EA8600" stroke-width="2"/>
+    <circle cx="1310" cy="275" r="4" fill="#EA8600"/>
+    <circle cx="1310" cy="465" r="4" fill="#EA8600"/>
+    <circle cx="1310" cy="655" r="4" fill="#EA8600"/>
+    <circle cx="1310" cy="845" r="4" fill="#EA8600"/>
   </svg>
 
   <div class="legend">
