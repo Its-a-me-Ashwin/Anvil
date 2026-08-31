@@ -324,24 +324,25 @@ running; `./anvil-run --stop [service]` stops one service, or all of them.
 | Code server | `8080` | Browser VS Code, scoped to the active project |
 | Firestore emulator | `8200` | Local project state DB |
 
-## ☁️ Deploy to Google Cloud
+If you choose to connect to the local backend please update the following env file to point to your backend:
+```
+#VITE_ANVIL_API_URL=https://anvil-backend-533795751800.us-west3.run.app ## For deployed backend
+VITE_ANVIL_API_URL=http://localhost:8000 ## For local backend
+VITE_WORKSHOP_BRIDGE_URL=http://localhost:3001```
 
-Full instructions — enabling APIs, standing up Firestore, building and
-deploying the container, wiring IAM — are in [`deploy.md`](deploy.md).
-Short version:
+in ./frontend/.env.production
 
-```bash
-cd backend
-gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/anvil-backend
-gcloud run deploy anvil-backend \
-  --image gcr.io/YOUR_PROJECT_ID/anvil-backend \
-  --set-env-vars GEMINI_API_KEY=...,GOOGLE_CLOUD_PROJECT=... \
-  --allow-unauthenticated --port 8080
+## ☁️ Deployed to Google Cloud
+
+App live at: https://anvil-506800.web.app/
+
+
+To use the local bridge with 3D printer support please run 
+```
+./anvil-run --start bridge ## Used to monitor camera feed from bambu labs printer.
+./anvil-run --start code-server ## You are free to chose your favorite code editor to view your code. Make sure it runs on 8080
 ```
 
-`curl https://<your-service>.run.app/health` should return
-`{"status":"ok","tools":N}` — that response is the "backend running on
-Google Cloud" proof the submission asks for.
 
 <a id="project-structure"></a>
 ## 📁 Project structure
