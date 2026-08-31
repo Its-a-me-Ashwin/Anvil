@@ -58,15 +58,19 @@ don't cut away before it lands.
 
 ## 0:18–0:32 — The problem, stated
 
-**Clip C** — a wall of open tabs: a CAD tool, three datasheet PDFs, a
-slicer, a forum thread. Chaotic, cluttered, real. Hold for 3–4 seconds,
-then **hard cut / wipe transition** into the Anvil app, idle, three-pane
-workspace visible.
+**Clip C** — your real screen recording: moving across a cluttered set of
+actually-open tabs (CAD tool, datasheet PDFs, forum thread, slicer),
+then navigating over to the Anvil landing page, all in one continuous
+take. No staged shot, no edited wipe needed — the recording already does
+the transition for you.
 
-> **VO:** *"A CAD tool. A datasheet you can't find. A slicer. A forum thread for the one wiring gotcha nobody documented. None of those tools know about each other — or about your project. You're the integration layer."*
+> **VO:** *"A CAD tool. A datasheet you can't find. A slicer. A forum thread for the one wiring gotcha nobody documented. None of those tools know about each other — or about your project. You're the integration layer. So we opened the one that finally is."*
 
-**On screen:** as the wipe completes into Anvil, hold on the idle
-workspace for one beat before the next line.
+**On screen:** let the recording play through at its own pace across the
+tabs; time the VO so "You're the integration layer" lands right around
+where you start navigating toward Anvil, and "the one that finally is"
+lands as the Anvil landing page comes into view. Hold there for one beat
+before the next line.
 **Subtitle:** as above.
 
 ---
