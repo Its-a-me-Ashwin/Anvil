@@ -328,7 +328,8 @@ If you choose to connect to the local backend please update the following env fi
 ```
 #VITE_ANVIL_API_URL=https://anvil-backend-533795751800.us-west3.run.app ## For deployed backend
 VITE_ANVIL_API_URL=http://localhost:8000 ## For local backend
-VITE_WORKSHOP_BRIDGE_URL=http://localhost:3001```
+VITE_WORKSHOP_BRIDGE_URL=http://localhost:3001
+```
 
 in ./frontend/.env.production
 
