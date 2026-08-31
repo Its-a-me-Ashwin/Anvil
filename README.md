@@ -8,6 +8,7 @@
 
 [![Gemini](https://img.shields.io/badge/Gemini-3.7-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
 [![Google ADK](https://img.shields.io/badge/Google%20ADK-Agent%20Framework-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://google.github.io/adk-docs/)
+[![Google GenAI SDK](https://img.shields.io/badge/Google%20GenAI%20SDK-Veo%20%2F%20Lyria-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://googleapis.github.io/python-genai/)
 [![Cloud Run](https://img.shields.io/badge/Cloud%20Run-Backend-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
 [![Firestore](https://img.shields.io/badge/Firestore-Project%20State-FFA000?style=for-the-badge&logo=firebase&logoColor=white)](https://firebase.google.com/docs/firestore)
 
@@ -168,7 +169,8 @@ flowchart TB
         Backend["FastAPI backend<br/>(Cloud Run)"]
         ADK["Google ADK Agent<br/>Gemini 3.7"]
         FS[("Firestore<br/>project state")]
-        Search["Google Search<br/>(grounding)"]
+        Search["Google Search<br/>(grounding, built-in ADK tool)"]
+        GenAI["Google GenAI SDK<br/>(google-genai client)"]
         Veo["Veo 3.1"]
         Lyria["Lyria 3"]
         YT["YouTube Data API"]
@@ -186,7 +188,8 @@ flowchart TB
     Backend --> ADK
     ADK -->|adapter registry: MCP + function tools| FS
     ADK --> Search
-    ADK --> Veo --> Lyria
+    ADK -->|animation function tool| GenAI
+    GenAI --> Veo --> Lyria
     ADK --> YT
     ADK -->|filesystem MCP| CS
     ADK -->|slice + dispatch| Bridge
@@ -216,6 +219,14 @@ flowchart TB
 - **Cloud/local model routing.** Gemini 3.7 reasons in the cloud; a **local
   Gemma 3** model handles printer-camera vision over Ollama, so the one loop
   that needs low-latency, always-on inference doesn't round-trip to the cloud.
+- **Two Google SDKs, each doing what it's best at.** The agent itself —
+  reasoning, tool orchestration, session/state management — runs on
+  **Google ADK** (`Agent`, `FunctionTool`, `MCPToolset`, the built-in
+  `google_search` tool). Generative media that doesn't fit the agent-loop
+  model — Veo video and Lyria scoring — is called directly through the
+  **Google GenAI SDK** (`google-genai`) from within the `animation` and
+  `music` function tools, and `server.py` also talks to `google.genai`
+  directly for session/client setup.
 - **State outlives the session.** Every meaningful fact — constraints,
   inventory, decisions, skill profile — is written to Firestore as it's
   learned, not held in a chat buffer, and read back into the system
@@ -245,7 +256,8 @@ flowchart TB
 | Piece | Role |
 |---|---|
 | **Gemini 3.7** | Agent reasoning, tool orchestration |
-| **Google ADK** | Agent framework — `MCPToolset` + `FunctionTool` wiring |
+| **Google ADK** | Agent framework — `Agent`, `MCPToolset` + `FunctionTool` wiring, session/runner plumbing |
+| **Google GenAI SDK** (`google-genai`) | Direct client used inside function tools and `server.py` for Veo/Lyria generation and session/client setup — the layer beneath ADK, called where ADK doesn't provide a wrapper |
 | **Firestore** | Project state, decisions, inventory, skill profile |
 | **Cloud Run** | Backend hosting |
 | **Gemma 3 (4B)** | Local printer-camera vision, via Ollama |
@@ -269,6 +281,7 @@ flowchart TB
 [![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Google ADK](https://img.shields.io/badge/Google%20ADK-4285F4?style=flat-square&logo=google&logoColor=white)](https://google.github.io/adk-docs/)
+[![Google GenAI SDK](https://img.shields.io/badge/google--genai-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)](https://googleapis.github.io/python-genai/)
 [![Gemini API](https://img.shields.io/badge/Gemini%20API-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
 [![build123d](https://img.shields.io/badge/build123d-parametric%20CAD-2E7D32?style=flat-square)](https://github.com/gumyr/build123d)
 [![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=flat-square&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
@@ -357,13 +370,14 @@ Anvil/
 ├── backend/
 │   ├── agent.py               Wires adapters/registry.py into a Google ADK Agent
 │   ├── server.py               FastAPI: chat sessions, streaming, project state
+│   │                           (also calls google-genai directly for client/session setup)
 │   └── adapters/
 │       ├── registry.py         Single source of truth — every tool the agent can touch
 │       ├── cad/                 Parametric assemblies (build123d)
 │       ├── circuit/             Wiring diagram CRUD
 │       ├── printer/             Slice + dispatch via the Workshop Bridge
 │       ├── state/               Firestore-backed project state
-│       ├── animation/           Veo + Lyria generation
+│       ├── animation/           Veo + Lyria generation via the Google GenAI SDK (google-genai)
 │       ├── youtube_search/      Tutorial lookup
 │       ├── datasheet/           Adafruit datasheet resolution
 │       └── filesystem/          MCP server params (shared with code-server)
