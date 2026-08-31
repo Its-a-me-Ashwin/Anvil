@@ -340,9 +340,7 @@ def _build_instruction(ctx) -> str:
 
 
 def build_agent(
-    # TEMPORARY for cheap local testing. The hackathon requires Gemini 3.5+
-    # (gemini-3.5-flash-lite confirmed working) — swap back before submission.
-    model: str = "gemini-flash-lite-latest",
+    model: str = "gemini-3.7-flash",
     tools: list | None = None,
 ) -> Agent:
     """Build the Anvil engineering partner agent."""
