@@ -1,25 +1,42 @@
+SHELL := /bin/bash
 VENV := .venv
 
 # Windows venv paths use Scripts/, Unix uses bin/.
 ifeq ($(OS),Windows_NT)
 	PY := $(VENV)/Scripts/python.exe
-	PIP := $(VENV)/Scripts/python.exe -m pip
 else
 	PY := $(VENV)/bin/python
-	PIP := $(VENV)/bin/pip
 endif
 
-# Prefer an explicit python3.12 if python3 is missing or too old.
-PYTHON := $(shell command -v python3 2>/dev/null || command -v python3.12 2>/dev/null || command -v python 2>/dev/null)
+# Prefer an explicit python3.12, then python3, then python.
+PYTHON := $(shell command -v python3.12 2>/dev/null || command -v python3 2>/dev/null || command -v python 2>/dev/null || true)
 
-.PHONY: setup test-all test-filesystem test-search test-cad test-circuit test-printer test-state clean
+.PHONY: help setup install recreate-venv test-all test-filesystem test-search test-cad test-circuit test-printer test-state serve clean
+
+help:
+	@echo "Make targets:"
+	@echo "  setup          Create virtualenv and install requirements"
+	@echo "  install        Alias for setup"
+	@echo "  recreate-venv  Remove venv and run setup"
+	@echo "  test-*         Run per-adapter test (e.g. make test-filesystem)"
+	@echo "  test-all       Run all adapter tests"
+	@echo "  serve          Run the server with uvicorn"
+	@echo "  clean          Remove venv and pycache"
+
+install: setup
 
 setup:
+	@if [ -z "$(PYTHON)" ]; then \
+		echo "No suitable python found. Install python3.12 or set PYTHON in environment."; \
+		exit 1; \
+	fi
 	$(PYTHON) -m venv $(VENV)
-	$(PIP) install -q --upgrade pip
-	$(PIP) install -q -r requirements.txt
+	$(PY) -m pip install -q --upgrade pip
+	$(PY) -m pip install -q -r requirements.txt
 
-# Add one target per adapter as it's built, and list it under test-all below.
+recreate-venv: clean setup
+
+# Adapter tests
 test-filesystem:
 	$(PY) -m adapters.filesystem.test_adapter
 
@@ -37,9 +54,11 @@ test-state:
 
 test-all: test-filesystem test-cad test-circuit test-printer test-state
 
+# Run app locally (use uvicorn from venv)
 serve:
-	$(PY) server.py
+	$(PY) -m uvicorn server:app --app-dir backend --host 0.0.0.0 --port 8080
 
 clean:
 	rm -rf $(VENV)
-	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	find . -name "*.pyc" -delete
